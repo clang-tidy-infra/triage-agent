@@ -23,7 +23,15 @@ ANALYSIS_FIELDS = [
     "Godbolt Link",
     "Rationale",
 ]
-KNOWN_VERDICTS = {"Reproduced", "Not Reproduced", "Crash", "Uncertain"}
+KNOWN_VERDICTS = {
+    "Reproduced",
+    "Not Reproduced",
+    "Crash",
+    "New Check Proposal",
+    "Enhancement Request",
+    "Question",
+    "Uncertain",
+}
 # GitHub's org-level Issue Types for llvm/llvm-project.
 KNOWN_TYPES = {"Bug", "Feature", "Task"}
 # llvm/llvm-project's clang-tidy label taxonomy - see AGENTS.md for the
