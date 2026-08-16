@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools==83.0.0", "wheel==0.47.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triage-agent"
+version = "0.1.0"
+description = "Agent to triage clang-tidy issues in LLVM repository"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Victor Baranov", email = "bar.victor.2002@gmail.com"},
+]
+dependencies = []
+keywords = [
+    "clang-tidy",
+    "llvm",
+    "triage",
+    "github",
+    "automation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.scripts]
+triage-agent = "triage_agent:main"
+
+[project.urls]
+Homepage = "https://github.com/vbvictor/triage-agent"
+Repository = "https://github.com/vbvictor/triage-agent"
+Issues = "https://github.com/vbvictor/triage-agent/issues"
+
+[project.optional-dependencies]
+dev = [
+    "black==26.5.1",
+    "validate-pyproject[all]==0.25",
+    "yamllint==1.38.0",
+    "ruff==0.16.1",
+    "mypy==2.3.0",
+    "zizmor==1.29.0",
+]
+
+[tool.setuptools]
+py-modules = ["triage_agent"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+target-version = "py310"
+lint.ignore = [
+    "E501", # ignore formatting, use black
+    "I001", # ignore imports, use black
+]
+exclude = [
+    "venv",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+explicit_package_bases = true
+exclude = [
+    "venv",
+]
+
+[tool.yamllint]
+config_file = ".yamllint.yaml"
