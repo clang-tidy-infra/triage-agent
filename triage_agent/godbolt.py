@@ -74,6 +74,34 @@ def run_clang_tidy(
     )
 
 
+_PLACEHOLDER_SOURCE = "int x;"
+
+
+def list_checks(
+    check_filter: str = "*",
+    compiler_id: str = CLANG_TRUNK_COMPILER_ID,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
+) -> list[str]:
+    """Return clang-tidy trunk's enabled check names matching `check_filter`.
+
+    Lets callers check whether a proposed new check overlaps with an
+    existing one without a local LLVM build. Needs a syntactically
+    trivial but non-empty source file; --list-checks output doesn't
+    depend on the file's actual contents.
+    """
+    result = run_clang_tidy(
+        _PLACEHOLDER_SOURCE,
+        tidy_args=f"--list-checks -checks={check_filter}",
+        compiler_id=compiler_id,
+        timeout=timeout,
+    )
+    return [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip() and not line.strip().endswith(":")
+    ]
+
+
 def _build_shortener_payload(
     source: str, tidy_args: str, compiler_args: str, compiler_id: str
 ) -> dict[str, Any]:
@@ -150,7 +178,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_common_args(shortlink_parser)
 
+    list_checks_parser = subparsers.add_parser(
+        "list-checks", help="List clang-tidy trunk's enabled check names"
+    )
+    list_checks_parser.add_argument(
+        "--check-filter", default="*", help="Check name glob filter (default: *)"
+    )
+    list_checks_parser.add_argument("--compiler-id", default=CLANG_TRUNK_COMPILER_ID)
+
     args = parser.parse_args(argv)
+
+    if args.command == "list-checks":
+        for name in list_checks(args.check_filter, args.compiler_id):
+            print(name)
+        return 0
+
     source = _read_source(args.source_file)
 
     if args.command == "compile":

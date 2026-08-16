@@ -94,5 +94,37 @@ class TestMakeShortlink(unittest.TestCase):
         )
 
 
+class TestListChecks(unittest.TestCase):
+    @patch("triage_agent.godbolt.requests.post")
+    def test_parses_check_names_from_list_output(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "code": 0,
+            "tools": [
+                {
+                    "id": "clangtidytrunk",
+                    "code": 0,
+                    "stdout": [
+                        {"text": "Enabled checks:"},
+                        {"text": "    modernize-avoid-bind"},
+                        {"text": "    modernize-use-nullptr"},
+                        {"text": ""},
+                    ],
+                    "stderr": [],
+                }
+            ],
+        }
+        mock_post.return_value = response
+
+        checks = godbolt.list_checks(check_filter="modernize-*")
+
+        self.assertEqual(checks, ["modernize-avoid-bind", "modernize-use-nullptr"])
+        payload = mock_post.call_args[1]["json"]
+        self.assertEqual(
+            payload["options"]["tools"],
+            [{"id": "clangtidytrunk", "args": "--list-checks -checks=modernize-*"}],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

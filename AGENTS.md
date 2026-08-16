@@ -1,9 +1,11 @@
 # AGENTS.md - LLVM clang-tidy Issue Triage Instructions
 
 You are a static analysis expert triaging a single GitHub issue filed
-against `llvm/llvm-project` with the `clang-tidy` label. Your job is to
-determine whether the reported clang-tidy warning is real, and produce a
-shareable reproducer for it.
+against `llvm/llvm-project` with the `clang-tidy` label. Most issues
+report a bug in an existing check - your job there is to determine
+whether it's real and produce a shareable reproducer. Some issues instead
+*propose a new check* - your job there is to judge whether it overlaps
+with something that already exists.
 
 ## Project Layout
 
@@ -33,22 +35,50 @@ AGENTS.md       # This file
    - **Check Name** - the clang-tidy check being discussed (e.g.
      `bugprone-use-after-move`). If the issue proposes a *new* check
      rather than reporting a bug in an existing one, write the proposed
-     check name or `N/A (new check proposal)`.
-   - **Extracted Snippet** - the minimal C++ code block from the issue,
-     reproduced verbatim in a fenced code block. Trim unrelated code but
-     do not alter the reported logic.
+     name (e.g. `modernize-use-atomic-shared-ptr`) - this is a new-check
+     proposal, go to step 3a instead of 3b below.
+   - **Extracted Snippet** - the minimal C++ code block from the issue
+     (the "before" snippet, for new-check proposals), reproduced verbatim
+     in a fenced code block. Trim unrelated code but do not alter the
+     reported logic.
    - **Flags/Config** - any `-checks=`, `-config=`, or compiler flags
      (e.g. `-std=c++20`) mentioned in the issue. Default to
      `-checks=-*,<check-name>` and `-std=c++20` if the issue doesn't
      specify.
 
-3. **Reproduce via `godbolt.py`** - run:
-   ```sh
-   python3 godbolt.py compile --source-file <snippet-file> \
-     --tidy-args "-checks=-*,<check-name>" --compiler-args "<flags>"
-   ```
-   Write the snippet to a temp file first. Compare the output against what
-   the issue reports.
+3a. **For a new-check proposal**, search for overlap with what already
+    exists before concluding there's nothing to compare against - you do
+    NOT need a local LLVM checkout for this, clang-tidy trunk's live
+    check list and docs are reachable directly:
+    - List candidate check names by keyword via the same Godbolt-backed
+      helper used for reproduction:
+      ```sh
+      python3 godbolt.py list-checks --check-filter "*<keyword>*"
+      ```
+      Try a few keywords drawn from the proposal's subject (e.g. for
+      "atomic shared_ptr" try `*atomic*` and `*shared-ptr*`). This runs
+      `clang-tidy --list-checks` on Compiler Explorer's live trunk build,
+      so it's always current.
+    - For any plausibly-related name, read what it actually does before
+      judging overlap - don't guess from the name alone. Fetch its doc
+      page with `curl`:
+      `https://raw.githubusercontent.com/llvm/llvm-project/main/clang-tools-extra/docs/clang-tidy/checks/<module>/<name>.md`
+      (e.g. `.../checks/bugprone/use-after-move.md`).
+    - Set **Verdict** to `New Check Proposal` and use **Rationale** to
+      state your conclusion: either name the existing check that already
+      covers (or partially covers) the request and explain the gap, or
+      state that you checked and no existing check overlaps.
+    - Leave **Godbolt Link** as `N/A` (there's no existing check to run
+      against Compiler Explorer for a check that doesn't exist yet). Skip
+      step 3b/4 below and go straight to step 5.
+
+3b. **For a bug in an existing check, reproduce via `godbolt.py`** - run:
+    ```sh
+    python3 godbolt.py compile --source-file <snippet-file> \
+      --tidy-args "-checks=-*,<check-name>" --compiler-args "<flags>"
+    ```
+    Write the snippet to a temp file first. Compare the output against
+    what the issue reports.
 
 4. **On a plausible reproduction**, generate a shareable link:
    ```sh
@@ -64,6 +94,8 @@ AGENTS.md       # This file
    - **Not Reproduced** - the check does not fire, or fires differently
      than reported, on trunk (may already be fixed, or was never valid).
    - **Crash** - clang-tidy itself crashes or hangs on the snippet.
+   - **New Check Proposal** - the issue proposes a check that doesn't
+     exist yet (see step 3a).
    - **Uncertain** - you extracted a snippet but the repro was
      inconclusive (e.g. Godbolt's trunk build lags the exact commit in
      the issue, or the report depends on multi-file/build-system context
@@ -77,8 +109,8 @@ AGENTS.md       # This file
 
 ## Escape Hatch
 
-If the issue body contains **no reproducible C++ snippet** at all (e.g.
-it's a build failure, a CI flake, a feature request with no code): set
+If the issue body contains **no reproducible C++ snippet or check
+proposal** at all (e.g. it's a build failure, a CI flake): set
 **Verdict** to `Uncertain`, explain why in **Rationale**, leave **Godbolt
 Link** as `N/A`, and stop - do not invent a snippet.
 
