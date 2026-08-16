@@ -130,12 +130,25 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
+          set -o pipefail
           claude -p "report.md is pre-filled for one LLVM clang-tidy \
           issue. Fill in the TBD fields in the Analysis section in place, \
           using godbolt.py to reproduce. Do not touch the Source section. \
           Follow AGENTS.md." \
           --allowedTools "Bash,Read,Edit" \
-          --model claude-sonnet-5
+          --model claude-sonnet-5 \
+          --output-format stream-json \
+          --verbose \
+          --include-partial-messages \
+          | tee claude-output.jsonl | jq -C '.'
+
+      - name: Extract agent summary
+        if: env.AGENT_BACKEND == 'claude'
+        run: |
+          if [ -f claude-output.jsonl ]; then
+            jq -r 'select(.type == "result") | .result' claude-output.jsonl \
+              > agent-summary.txt || true
+          fi
 
       - name: Install Cursor CLI
         if: env.AGENT_BACKEND == 'cursor'
@@ -161,7 +174,11 @@ jobs:
         if: always()
         with:
           name: report-${{ matrix.issue }}
-          path: report.md
+          path: |
+            report.md
+            agent-summary.txt
 
       - name: Create tracking issue
-        run: triage-agent create-tracking-issue --issue-number "$ISSUE_NUMBER" --report-file report.md
+        run: >
+          triage-agent create-tracking-issue --issue-number "$ISSUE_NUMBER"
+          --report-file report.md --agent-summary-file agent-summary.txt

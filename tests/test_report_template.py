@@ -5,6 +5,7 @@ from pathlib import Path
 from triage_agent import triage_db
 from triage_agent.report_template import (
     ReportTemplateInputs,
+    append_agent_summary,
     extract_source_title,
     find_unfilled_fields,
     generate_report_template,
@@ -223,6 +224,26 @@ class TestExtractSourceTitle(unittest.TestCase):
             content = Path(output).read_text(encoding="utf-8")
 
         self.assertEqual(extract_source_title(content), INPUTS.llvm_issue_title)
+
+
+class TestAppendAgentSummary(unittest.TestCase):
+    def test_wraps_summary_in_details_block(self):
+        body = append_agent_summary("report body", "**Summary:** it's a bug.")
+
+        self.assertTrue(body.startswith("report body\n"))
+        self.assertIn("<details>", body)
+        self.assertIn("<summary><b>Agent Summary</b>", body)
+        self.assertIn("**Summary:** it's a bug.", body)
+        self.assertTrue(body.rstrip().endswith("</details>"))
+
+    def test_strips_surrounding_whitespace(self):
+        body = append_agent_summary("report body", "\n\n  **Summary:** ok.  \n\n")
+
+        self.assertIn("**Summary:** ok.\n\n</details>", body)
+
+    def test_returns_body_unchanged_when_summary_blank(self):
+        self.assertEqual(append_agent_summary("report body", "   \n  "), "report body")
+        self.assertEqual(append_agent_summary("report body", ""), "report body")
 
 
 if __name__ == "__main__":
