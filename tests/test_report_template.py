@@ -41,7 +41,7 @@ class TestGenerateReportTemplate(unittest.TestCase):
             generate_report_template(INPUTS, output=output)
             content = Path(output).read_text(encoding="utf-8")
 
-        self.assertEqual(triage_db._extract_source_issue_number(content), 12345)
+        self.assertEqual(triage_db.extract_source_issue_number(content), 12345)
 
 
 class TestParseReport(unittest.TestCase):
@@ -95,6 +95,47 @@ class TestParseReport(unittest.TestCase):
             )
             with self.assertRaises(ValueError):
                 parse_report(path)
+
+    def test_raises_on_unrecognized_tag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Reproduced\n"
+                "- **Type:** Bug\n"
+                "- **Tags:** flase-positive\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** garbled output.\n",
+            )
+            with self.assertRaises(ValueError):
+                parse_report(path)
+
+    def test_accepts_multiple_known_tags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Crash\n"
+                "- **Type:** Bug\n"
+                "- **Tags:** crash-on-valid, confirmed\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** crashes on trunk.\n",
+            )
+            parsed = parse_report(path)
+
+        self.assertEqual(parsed.tags, "crash-on-valid, confirmed")
+
+    def test_accepts_na_tags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Uncertain\n"
+                "- **Type:** Task\n"
+                "- **Tags:** N/A\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** nothing applies.\n",
+            )
+            parsed = parse_report(path)
+
+        self.assertEqual(parsed.tags, "N/A")
 
     def test_raises_when_field_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

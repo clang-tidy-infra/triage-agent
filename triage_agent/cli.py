@@ -37,6 +37,13 @@ def _build_tracking_title(source_title: str, issue_number: int) -> str:
 def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
     report_markdown = Path(args.report_file).read_text(encoding="utf-8")
 
+    source_issue_number = triage_db.extract_source_issue_number(report_markdown)
+    if source_issue_number != args.issue_number:
+        raise RuntimeError(
+            f"--issue-number {args.issue_number} does not match report.md's "
+            f"Source issue #{source_issue_number}"
+        )
+
     unfilled = report_template.find_unfilled_fields(report_markdown)
     if unfilled:
         raise RuntimeError(

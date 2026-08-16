@@ -128,6 +128,9 @@ failure is `Type: Task`, `Tags: build-problem`).
   field must be filled in, even if the value is `N/A`.
 - **Type** must be exactly one of `Bug`, `Feature`, or `Task` - no other
   spelling or value.
+- Every value in **Tags** must be spelled exactly as listed above (or be
+  `N/A`) - the exact strings are validated, so typos or invented tags
+  will fail the run rather than silently land in the issue.
 - Be **conservative** - only mark `Reproduced` when Godbolt's output
   clearly matches the reported behavior.
 - Write **Rationale** as one unbroken line of prose, no manual line

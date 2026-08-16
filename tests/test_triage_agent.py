@@ -72,9 +72,16 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
     @patch("triage_agent.report_template.extract_source_title")
     @patch("triage_agent.report_template.parse_report")
     @patch("triage_agent.report_template.find_unfilled_fields")
+    @patch("triage_agent.triage_db.extract_source_issue_number")
     def test_creates_issue_when_report_complete(
-        self, mock_unfilled, mock_parse, mock_extract_title, mock_create
+        self,
+        mock_source_number,
+        mock_unfilled,
+        mock_parse,
+        mock_extract_title,
+        mock_create,
     ):
+        mock_source_number.return_value = 42
         mock_unfilled.return_value = []
         mock_parse.return_value = ParsedReport(
             verdict="Reproduced",
@@ -109,7 +116,9 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
         )
 
     @patch("triage_agent.report_template.find_unfilled_fields")
-    def test_raises_when_fields_still_tbd(self, mock_unfilled):
+    @patch("triage_agent.triage_db.extract_source_issue_number")
+    def test_raises_when_fields_still_tbd(self, mock_source_number, mock_unfilled):
+        mock_source_number.return_value = 42
         mock_unfilled.return_value = ["Verdict", "Rationale"]
 
         with (
@@ -120,7 +129,11 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
 
     @patch("triage_agent.report_template.parse_report")
     @patch("triage_agent.report_template.find_unfilled_fields")
-    def test_raises_when_verdict_invalid(self, mock_unfilled, mock_parse):
+    @patch("triage_agent.triage_db.extract_source_issue_number")
+    def test_raises_when_verdict_invalid(
+        self, mock_source_number, mock_unfilled, mock_parse
+    ):
+        mock_source_number.return_value = 42
         mock_unfilled.return_value = []
         mock_parse.side_effect = ValueError("bad verdict")
 
@@ -129,6 +142,21 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             self.assertRaises(ValueError),
         ):
             main(["create-tracking-issue", "--issue-number", "42"])
+
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    @patch("triage_agent.triage_db.extract_source_issue_number")
+    def test_raises_when_issue_number_mismatches_report(
+        self, mock_source_number, mock_unfilled
+    ):
+        mock_source_number.return_value = 99
+
+        with (
+            patch("triage_agent.cli.Path.read_text", return_value="report contents"),
+            self.assertRaises(RuntimeError),
+        ):
+            main(["create-tracking-issue", "--issue-number", "42"])
+
+        mock_unfilled.assert_not_called()
 
 
 if __name__ == "__main__":
