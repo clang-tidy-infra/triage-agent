@@ -30,6 +30,9 @@ permissions: {}
 
 jobs:
   discover:
+    permissions:
+      contents: read
+      issues: read
     uses: ./.github/workflows/discover-issues.yaml
     with:
       mode: 'backlog'
