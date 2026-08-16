@@ -117,7 +117,9 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             godbolt_link="https://godbolt.org/z/x",
         )
         mock_extract_title.return_value = "some-check false positive"
-        mock_create.return_value = "https://github.com/vbvictor/triage-agent/issues/1"
+        mock_create.return_value = (
+            "https://github.com/clang-tidy-infra/triage-agent/issues/1"
+        )
 
         with (
             patch("triage_agent.cli.Path.read_text", return_value="report contents"),
@@ -138,7 +140,7 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             title="some-check false positive (llvm#42)", body="report contents"
         )
         mock_print.assert_called_once_with(
-            "https://github.com/vbvictor/triage-agent/issues/1"
+            "https://github.com/clang-tidy-infra/triage-agent/issues/1"
         )
 
     @patch("triage_agent.report_template.find_unfilled_fields")
@@ -207,7 +209,9 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             godbolt_link=None,
         )
         mock_extract_title.return_value = "t"
-        mock_create.return_value = "https://github.com/vbvictor/triage-agent/issues/1"
+        mock_create.return_value = (
+            "https://github.com/clang-tidy-infra/triage-agent/issues/1"
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             report_path = Path(tmp) / "r.md"
@@ -255,7 +259,9 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             godbolt_link=None,
         )
         mock_extract_title.return_value = "t"
-        mock_create.return_value = "https://github.com/vbvictor/triage-agent/issues/2"
+        mock_create.return_value = (
+            "https://github.com/clang-tidy-infra/triage-agent/issues/2"
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             report_path = Path(tmp) / "r.md"

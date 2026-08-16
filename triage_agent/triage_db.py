@@ -1,7 +1,7 @@
 """Dedup database for LLVM issue triage, built on this repo's own issues.
 
 Each already-triaged LLVM issue has a corresponding tracking issue in
-vbvictor/triage-agent whose body contains report.md's `- **Issue:** <url>`
+clang-tidy-infra/triage-agent whose body contains report.md's `- **Issue:** <url>`
 line (see report_template.py) pointing back at the source LLVM issue.
 Dedup works by fetching this repo's tracking issues each run and
 regex-extracting that line client-side, deliberately avoiding GitHub's
@@ -18,7 +18,7 @@ from pathlib import Path
 
 from triage_agent.llvm_issues import LlvmIssue
 
-TRIAGE_REPO = "vbvictor/triage-agent"
+TRIAGE_REPO = "clang-tidy-infra/triage-agent"
 TRACKING_LABEL = "clang-tidy-triage"
 SOURCE_MARKER_RE = re.compile(
     r"-\s*\*\*Issue:\*\*\s*https://github\.com/llvm/llvm-project/issues/(\d+)"
