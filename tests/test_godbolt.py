@@ -72,6 +72,24 @@ class TestRunClangTidy(unittest.TestCase):
         with self.assertRaises(requests.HTTPError):
             godbolt.run_clang_tidy("int main() {}", tidy_args="-checks=*")
 
+    @patch("triage_agent.godbolt.requests.post")
+    def test_raises_when_code_field_missing(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "code": 0,
+            "tools": [
+                {
+                    "id": "clangtidytrunk",
+                    "stdout": [],
+                    "stderr": [],
+                }
+            ],
+        }
+        mock_post.return_value = response
+
+        with self.assertRaises(KeyError):
+            godbolt.run_clang_tidy("int main() {}", tidy_args="-checks=*")
+
 
 class TestMakeShortlink(unittest.TestCase):
     @patch("triage_agent.godbolt.requests.post")

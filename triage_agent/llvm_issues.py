@@ -44,7 +44,7 @@ def fetch_recent_clang_tidy_issues(
     label: str = CLANG_TIDY_LABEL,
     limit: int = 300,
 ) -> list[LlvmIssue]:
-    """Fetch label-matching issues created at/after `since`, oldest first."""
+    """Fetch open, label-matching issues created at/after `since`, oldest first."""
     result = subprocess.run(
         [
             "gh",
@@ -55,7 +55,7 @@ def fetch_recent_clang_tidy_issues(
             "--label",
             label,
             "--state",
-            "all",
+            "open",
             "--json",
             ISSUE_JSON_FIELDS,
             "--limit",

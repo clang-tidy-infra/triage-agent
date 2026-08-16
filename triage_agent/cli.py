@@ -30,20 +30,23 @@ def _cmd_report_template(args: argparse.Namespace) -> int:
     return 0
 
 
-def _build_tracking_title(issue: llvm_issues.LlvmIssue) -> str:
-    return f"{issue.title} (llvm#{issue.number})"
+def _build_tracking_title(source_title: str, issue_number: int) -> str:
+    return f"{source_title} (llvm#{issue_number})"
 
 
 def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
-    issue = llvm_issues.fetch_issue(args.issue_number)
     report_markdown = Path(args.report_file).read_text(encoding="utf-8")
-    parsed = report_template.parse_report(args.report_file)
-    if parsed.verdict.strip().upper() == report_template.TBD:
+
+    unfilled = report_template.find_unfilled_fields(report_markdown)
+    if unfilled:
         raise RuntimeError(
-            f"report.md for issue {args.issue_number} was not filled in "
-            "(Verdict is still TBD)"
+            f"report.md for issue {args.issue_number} is incomplete "
+            f"(still TBD: {', '.join(unfilled)})"
         )
-    title = _build_tracking_title(issue)
+    report_template.parse_report(args.report_file)  # raises on a bad Verdict
+
+    source_title = report_template.extract_source_title(report_markdown)
+    title = _build_tracking_title(source_title, args.issue_number)
     url = triage_db.create_tracking_issue(title=title, body=report_markdown)
     print(url)
     return 0

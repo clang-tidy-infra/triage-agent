@@ -5,6 +5,8 @@ from pathlib import Path
 from triage_agent import triage_db
 from triage_agent.report_template import (
     ReportTemplateInputs,
+    extract_source_title,
+    find_unfilled_fields,
     generate_report_template,
     parse_report,
 )
@@ -78,6 +80,81 @@ class TestParseReport(unittest.TestCase):
             path = self._write(tmp, "- **Godbolt Link:** N/A\n")
             with self.assertRaises(ValueError):
                 parse_report(path)
+
+    def test_raises_on_unrecognized_verdict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** probably reproduced maybe\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** garbled output.\n",
+            )
+            with self.assertRaises(ValueError):
+                parse_report(path)
+
+    def test_extracts_godbolt_link_wrapped_onto_next_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Reproduced\n"
+                "- **Godbolt Link:**\n"
+                "  https://godbolt.org/z/abc123\n"
+                "- **Rationale:** because.\n",
+            )
+            parsed = parse_report(path)
+
+        self.assertEqual(parsed.godbolt_link, "https://godbolt.org/z/abc123")
+
+
+class TestFindUnfilledFields(unittest.TestCase):
+    def test_finds_no_unfilled_fields_when_all_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = str(Path(tmp) / "report.md")
+            generate_report_template(INPUTS, output=output)
+            content = Path(output).read_text(encoding="utf-8")
+            content = content.replace("TBD", "filled in")
+
+        self.assertEqual(find_unfilled_fields(content), [])
+
+    def test_finds_all_fields_unfilled_in_fresh_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = str(Path(tmp) / "report.md")
+            generate_report_template(INPUTS, output=output)
+            content = Path(output).read_text(encoding="utf-8")
+
+        self.assertEqual(
+            find_unfilled_fields(content),
+            [
+                "Check Name",
+                "Extracted Snippet",
+                "Flags/Config",
+                "Verdict",
+                "Godbolt Link",
+                "Rationale",
+            ],
+        )
+
+    def test_finds_only_the_one_field_left_tbd(self):
+        content = (
+            "- **Check Name:** bugprone-foo\n"
+            "- **Extracted Snippet:** ```cpp\\nint x;\\n```\n"
+            "- **Flags/Config:** -checks=-*,bugprone-foo\n"
+            "- **Verdict:** TBD\n"
+            "- **Godbolt Link:** N/A\n"
+            "- **Rationale:** still deciding.\n"
+        )
+
+        self.assertEqual(find_unfilled_fields(content), ["Verdict"])
+
+
+class TestExtractSourceTitle(unittest.TestCase):
+    def test_extracts_title_from_generated_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = str(Path(tmp) / "report.md")
+            generate_report_template(INPUTS, output=output)
+            content = Path(output).read_text(encoding="utf-8")
+
+        self.assertEqual(extract_source_title(content), INPUTS.llvm_issue_title)
 
 
 if __name__ == "__main__":

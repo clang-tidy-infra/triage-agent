@@ -44,7 +44,7 @@ class TestFetchRecentClangTidyIssues(unittest.TestCase):
         self.assertIn("--label", argv)
         self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy")
         self.assertIn("--state", argv)
-        self.assertEqual(argv[argv.index("--state") + 1], "all")
+        self.assertEqual(argv[argv.index("--state") + 1], "open")
         self.assertTrue(kwargs["check"])
 
     @patch("triage_agent.llvm_issues.subprocess.run")
