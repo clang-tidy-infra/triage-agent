@@ -5,13 +5,11 @@ from pathlib import Path
 from triage_agent import triage_db
 from triage_agent.report_template import (
     ReportTemplateInputs,
-    build_tracking_issue_body,
     generate_report_template,
     parse_report,
 )
 
 INPUTS = ReportTemplateInputs(
-    llvm_issue_number=12345,
     llvm_issue_url="https://github.com/llvm/llvm-project/issues/12345",
     llvm_issue_title="[clang-tidy] some-check false positive",
     llvm_issue_body="```cpp\nint x = 0;\n```",
@@ -25,12 +23,21 @@ class TestGenerateReportTemplate(unittest.TestCase):
             generate_report_template(INPUTS, output=output)
             content = Path(output).read_text(encoding="utf-8")
 
+        self.assertTrue(content.startswith("## Source"))
         self.assertIn(INPUTS.llvm_issue_url, content)
         self.assertIn(INPUTS.llvm_issue_title, content)
         self.assertIn(INPUTS.llvm_issue_body, content)
         self.assertIn("**Verdict:** TBD", content)
         self.assertIn("**Godbolt Link:** TBD", content)
         self.assertIn("**Rationale:** TBD", content)
+
+    def test_extract_source_issue_number_finds_issue_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = str(Path(tmp) / "report.md")
+            generate_report_template(INPUTS, output=output)
+            content = Path(output).read_text(encoding="utf-8")
+
+        self.assertEqual(triage_db._extract_source_issue_number(content), 12345)
 
 
 class TestParseReport(unittest.TestCase):
@@ -71,17 +78,6 @@ class TestParseReport(unittest.TestCase):
             path = self._write(tmp, "- **Godbolt Link:** N/A\n")
             with self.assertRaises(ValueError):
                 parse_report(path)
-
-
-class TestBuildTrackingIssueBody(unittest.TestCase):
-    def test_round_trips_through_dedup_marker_regex(self):
-        body = build_tracking_issue_body(INPUTS.llvm_issue_url, "report contents")
-
-        self.assertTrue(body.startswith("**Source:**"))
-        self.assertIn("report contents", body)
-        self.assertEqual(
-            triage_db._extract_source_issue_number(body), INPUTS.llvm_issue_number
-        )
 
 
 if __name__ == "__main__":

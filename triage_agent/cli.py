@@ -22,13 +22,16 @@ def _cmd_discover(args: argparse.Namespace) -> int:
 def _cmd_report_template(args: argparse.Namespace) -> int:
     issue = llvm_issues.fetch_issue(args.issue_number)
     inputs = report_template.ReportTemplateInputs(
-        llvm_issue_number=issue.number,
         llvm_issue_url=issue.url,
         llvm_issue_title=issue.title,
         llvm_issue_body=issue.body,
     )
     report_template.generate_report_template(inputs, output=args.output)
     return 0
+
+
+def _build_tracking_title(issue: llvm_issues.LlvmIssue) -> str:
+    return f"{issue.title} (llvm#{issue.number})"
 
 
 def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
@@ -40,9 +43,8 @@ def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
             f"report.md for issue {args.issue_number} was not filled in "
             "(Verdict is still TBD)"
         )
-    body = report_template.build_tracking_issue_body(issue.url, report_markdown)
-    title = f"[clang-tidy] {issue.title} (llvm#{issue.number})"
-    url = triage_db.create_tracking_issue(title=title, body=body)
+    title = _build_tracking_title(issue)
+    url = triage_db.create_tracking_issue(title=title, body=report_markdown)
     print(url)
     return 0
 

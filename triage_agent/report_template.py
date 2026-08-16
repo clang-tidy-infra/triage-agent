@@ -10,8 +10,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from triage_agent.triage_db import build_source_marker
-
 REPORT_TEMPLATE_PATH = "report.md"
 TBD = "TBD"
 NOT_APPLICABLE = "N/A"
@@ -19,7 +17,6 @@ NOT_APPLICABLE = "N/A"
 
 @dataclass
 class ReportTemplateInputs:
-    llvm_issue_number: int
     llvm_issue_url: str
     llvm_issue_title: str
     llvm_issue_body: str
@@ -29,12 +26,9 @@ def generate_report_template(
     inputs: ReportTemplateInputs, output: str = REPORT_TEMPLATE_PATH
 ) -> None:
     content = f"""\
-# clang-tidy issue triage report
-
-## Source (do not edit this section)
+## Source
 
 - **Issue:** {inputs.llvm_issue_url}
-- **Number:** {inputs.llvm_issue_number}
 - **Title:** {inputs.llvm_issue_title}
 
 <details>
@@ -89,7 +83,3 @@ def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
             None if godbolt_link.upper() in {NOT_APPLICABLE, TBD, ""} else godbolt_link
         ),
     )
-
-
-def build_tracking_issue_body(llvm_issue_url: str, report_markdown: str) -> str:
-    return f"{build_source_marker(llvm_issue_url)}\n\n{report_markdown}"

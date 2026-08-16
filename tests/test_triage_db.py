@@ -18,8 +18,8 @@ def _issue(number: int, created_at: str) -> LlvmIssue:
 
 
 class TestExtractSourceIssueNumber(unittest.TestCase):
-    def test_extracts_number_from_marker(self):
-        body = "Some report\n\n**Source:** https://github.com/llvm/llvm-project/issues/12345\n"
+    def test_extracts_number_from_issue_line(self):
+        body = "## Source\n\n- **Issue:** https://github.com/llvm/llvm-project/issues/12345\n"
         self.assertEqual(triage_db._extract_source_issue_number(body), 12345)
 
     def test_returns_none_when_marker_missing(self):
@@ -41,12 +41,12 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
                 [
                     {
                         "title": "t1",
-                        "body": "**Source:** https://github.com/llvm/llvm-project/issues/1",
+                        "body": "- **Issue:** https://github.com/llvm/llvm-project/issues/1",
                     },
                     {"title": "t2", "body": "no marker"},
                     {
                         "title": "t3",
-                        "body": "**Source:** https://github.com/llvm/llvm-project/issues/2",
+                        "body": "- **Issue:** https://github.com/llvm/llvm-project/issues/2",
                     },
                 ]
             )
@@ -73,16 +73,6 @@ class TestSelectNewIssues(unittest.TestCase):
         result = triage_db.select_new_issues(issues, tracked={2}, cap=2)
 
         self.assertEqual([issue.number for issue in result], [1, 3])
-
-
-class TestBuildSourceMarker(unittest.TestCase):
-    def test_formats_marker(self):
-        self.assertEqual(
-            triage_db.build_source_marker(
-                "https://github.com/llvm/llvm-project/issues/5"
-            ),
-            "**Source:** https://github.com/llvm/llvm-project/issues/5",
-        )
 
 
 class TestCreateTrackingIssue(unittest.TestCase):
