@@ -12,7 +12,9 @@ license = {text = "Apache-2.0"}
 authors = [
     {name = "Victor Baranov", email = "bar.victor.2002@gmail.com"},
 ]
-dependencies = []
+dependencies = [
+    "requests>=2.31",
+]
 keywords = [
     "clang-tidy",
     "llvm",
@@ -50,10 +52,11 @@ dev = [
     "ruff==0.16.1",
     "mypy==2.3.0",
     "zizmor==1.29.0",
+    "types-requests",
 ]
 
 [tool.setuptools]
-py-modules = ["triage_agent"]
+packages = ["triage_agent"]
 
 [tool.black]
 line-length = 88
@@ -73,7 +76,6 @@ exclude = [
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-explicit_package_bases = true
 exclude = [
     "venv",
 ]
