@@ -38,7 +38,7 @@ def generate_report_template(
 
 </details>
 
-## Analysis (fill in below)
+## Analysis
 
 - **Check Name:** {TBD}
 - **Extracted Snippet:** {TBD}
