@@ -57,7 +57,9 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         self.assertEqual(result, {1, 2})
         (argv,), kwargs = mock_run.call_args
         self.assertIn("--repo", argv)
-        self.assertEqual(argv[argv.index("--repo") + 1], "vbvictor/triage-agent")
+        self.assertEqual(
+            argv[argv.index("--repo") + 1], "clang-tidy-infra/triage-agent"
+        )
         self.assertIn("--label", argv)
         self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy-triage")
         self.assertIn("--state", argv)
@@ -102,12 +104,14 @@ class TestCreateTrackingIssue(unittest.TestCase):
     @patch("triage_agent.triage_db.subprocess.run")
     def test_creates_issue_via_body_file_and_returns_url(self, mock_run):
         mock_run.return_value = MagicMock(
-            stdout="https://github.com/vbvictor/triage-agent/issues/9\n"
+            stdout="https://github.com/clang-tidy-infra/triage-agent/issues/9\n"
         )
 
         url = triage_db.create_tracking_issue(title="Title", body="Body text")
 
-        self.assertEqual(url, "https://github.com/vbvictor/triage-agent/issues/9")
+        self.assertEqual(
+            url, "https://github.com/clang-tidy-infra/triage-agent/issues/9"
+        )
         (argv,), kwargs = mock_run.call_args
         self.assertEqual(argv[:3], ["gh", "issue", "create"])
         self.assertIn("--body-file", argv)
