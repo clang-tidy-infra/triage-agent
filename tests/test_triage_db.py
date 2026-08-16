@@ -58,6 +58,10 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         (argv,), kwargs = mock_run.call_args
         self.assertIn("--repo", argv)
         self.assertEqual(argv[argv.index("--repo") + 1], "vbvictor/triage-agent")
+        self.assertIn("--label", argv)
+        self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy-triage")
+        self.assertIn("--state", argv)
+        self.assertEqual(argv[argv.index("--state") + 1], "open")
         self.assertTrue(kwargs["check"])
 
 

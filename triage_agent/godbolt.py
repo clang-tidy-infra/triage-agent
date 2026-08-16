@@ -65,7 +65,7 @@ def run_clang_tidy(
     for tool_result in data.get("tools", []):
         if tool_result.get("id") == CLANG_TIDY_TOOL_ID:
             return ClangTidyResult(
-                exit_code=tool_result.get("code", 0),
+                exit_code=tool_result["code"],
                 stdout=_join_lines(tool_result.get("stdout", [])),
                 stderr=_join_lines(tool_result.get("stderr", [])),
             )

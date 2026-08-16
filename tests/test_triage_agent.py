@@ -60,28 +60,28 @@ class TestReportTemplateCommand(unittest.TestCase):
 
 
 class TestBuildTrackingTitle(unittest.TestCase):
-    def test_copies_llvm_title_verbatim(self):
-        issue = _issue(42)
-        issue.title = "[clang-tidy] some-check false positive"
+    def test_appends_issue_number(self):
         self.assertEqual(
-            cli._build_tracking_title(issue),
+            cli._build_tracking_title("[clang-tidy] some-check false positive", 42),
             "[clang-tidy] some-check false positive (llvm#42)",
         )
 
 
 class TestCreateTrackingIssueCommand(unittest.TestCase):
     @patch("triage_agent.triage_db.create_tracking_issue")
+    @patch("triage_agent.report_template.extract_source_title")
     @patch("triage_agent.report_template.parse_report")
-    @patch("triage_agent.llvm_issues.fetch_issue")
-    def test_creates_issue_when_verdict_filled_in(
-        self, mock_fetch, mock_parse, mock_create
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    def test_creates_issue_when_report_complete(
+        self, mock_unfilled, mock_parse, mock_extract_title, mock_create
     ):
-        mock_fetch.return_value = _issue(42)
+        mock_unfilled.return_value = []
         mock_parse.return_value = ParsedReport(
             verdict="Reproduced",
             rationale="because",
             godbolt_link="https://godbolt.org/z/x",
         )
+        mock_extract_title.return_value = "some-check false positive"
         mock_create.return_value = "https://github.com/vbvictor/triage-agent/issues/1"
 
         with (
@@ -99,22 +99,32 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_create.assert_called_once_with(title="t (llvm#42)", body="report contents")
+        mock_create.assert_called_once_with(
+            title="some-check false positive (llvm#42)", body="report contents"
+        )
         mock_print.assert_called_once_with(
             "https://github.com/vbvictor/triage-agent/issues/1"
         )
 
-    @patch("triage_agent.report_template.parse_report")
-    @patch("triage_agent.llvm_issues.fetch_issue")
-    def test_raises_when_verdict_still_tbd(self, mock_fetch, mock_parse):
-        mock_fetch.return_value = _issue(42)
-        mock_parse.return_value = ParsedReport(
-            verdict="TBD", rationale="TBD", godbolt_link=None
-        )
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    def test_raises_when_fields_still_tbd(self, mock_unfilled):
+        mock_unfilled.return_value = ["Verdict", "Rationale"]
 
         with (
             patch("triage_agent.cli.Path.read_text", return_value="report contents"),
             self.assertRaises(RuntimeError),
+        ):
+            main(["create-tracking-issue", "--issue-number", "42"])
+
+    @patch("triage_agent.report_template.parse_report")
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    def test_raises_when_verdict_invalid(self, mock_unfilled, mock_parse):
+        mock_unfilled.return_value = []
+        mock_parse.side_effect = ValueError("bad verdict")
+
+        with (
+            patch("triage_agent.cli.Path.read_text", return_value="report contents"),
+            self.assertRaises(ValueError),
         ):
             main(["create-tracking-issue", "--issue-number", "42"])
 

@@ -86,7 +86,7 @@ Link** as `N/A`, and stop - do not invent a snippet.
 
 - **Edit `report.md` in place.** Do NOT rewrite the file from scratch or
   change its structure.
-- Do **NOT** edit the Source section (Issue/Number/Title/original body).
+- Do **NOT** edit the Source section (Issue/Title/original body).
 - Do **NOT** leave any of the six Analysis fields as `TBD` - every field
   must be filled in, even if the value is `N/A`.
 - Be **conservative** - only mark `Reproduced` when Godbolt's output

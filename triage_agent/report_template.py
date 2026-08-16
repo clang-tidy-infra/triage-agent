@@ -13,6 +13,15 @@ from pathlib import Path
 REPORT_TEMPLATE_PATH = "report.md"
 TBD = "TBD"
 NOT_APPLICABLE = "N/A"
+ANALYSIS_FIELDS = [
+    "Check Name",
+    "Extracted Snippet",
+    "Flags/Config",
+    "Verdict",
+    "Godbolt Link",
+    "Rationale",
+]
+KNOWN_VERDICTS = {"Reproduced", "Not Reproduced", "Crash", "Uncertain"}
 
 
 @dataclass
@@ -58,10 +67,20 @@ class ParsedReport:
 
 
 def _extract_field(content: str, name: str) -> str:
-    match = re.search(rf"^- \*\*{re.escape(name)}:\*\*\s*(.*)$", content, re.MULTILINE)
+    match = re.search(
+        rf"^- \*\*{re.escape(name)}:\*\*[ \t]*(.*)$", content, re.MULTILINE
+    )
     if not match:
         raise ValueError(f"report.md missing required field: {name}")
-    return match.group(1).strip()
+    value = match.group(1).strip()
+    if value:
+        return value
+    # The agent may have wrapped a long value (e.g. a URL) onto the next
+    # line instead of writing it inline after the label.
+    next_line_match = re.search(r"\n[ \t]*(\S[^\n]*)", content[match.end() :])
+    if next_line_match and not next_line_match.group(1).startswith("- **"):
+        return next_line_match.group(1).strip()
+    return value
 
 
 def _extract_rationale(content: str) -> str:
@@ -73,11 +92,33 @@ def _extract_rationale(content: str) -> str:
     return match.group(1).strip()
 
 
+def extract_source_title(content: str) -> str:
+    """Read the LLVM issue's title back out of report.md's Source section."""
+    return _extract_field(content, "Title")
+
+
+def find_unfilled_fields(content: str) -> list[str]:
+    """Return the names of any Analysis fields the agent left as TBD."""
+    return [
+        field
+        for field in ANALYSIS_FIELDS
+        if re.search(
+            rf"^- \*\*{re.escape(field)}:\*\*\s*{TBD}\s*$", content, re.MULTILINE
+        )
+    ]
+
+
 def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
     content = Path(path).read_text(encoding="utf-8")
+    verdict = _extract_field(content, "Verdict")
+    if verdict.upper() != TBD and verdict not in KNOWN_VERDICTS:
+        raise ValueError(
+            f"Unrecognized verdict {verdict!r}; expected one of "
+            f"{sorted(KNOWN_VERDICTS)}"
+        )
     godbolt_link = _extract_field(content, "Godbolt Link")
     return ParsedReport(
-        verdict=_extract_field(content, "Verdict"),
+        verdict=verdict,
         rationale=_extract_rationale(content),
         godbolt_link=(
             None if godbolt_link.upper() in {NOT_APPLICABLE, TBD, ""} else godbolt_link

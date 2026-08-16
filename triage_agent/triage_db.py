@@ -3,10 +3,11 @@
 Each already-triaged LLVM issue has a corresponding tracking issue in
 vbvictor/triage-agent whose body contains report.md's `- **Issue:** <url>`
 line (see report_template.py) pointing back at the source LLVM issue.
-Dedup works by fetching ALL of this repo's issues each run and
+Dedup works by fetching this repo's OPEN tracking issues each run and
 regex-extracting that line client-side, deliberately avoiding GitHub's
 search-index API (which lags), since a full fetch-and-diff is cheap at
-this repo's scale.
+this repo's scale. Only open tracking issues count: closing one is how
+you tell the bot to reconsider that LLVM issue on a future run.
 """
 
 import json
@@ -30,7 +31,7 @@ def _extract_source_issue_number(body: str) -> int | None:
 
 
 def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
-    """Return the set of LLVM issue numbers already tracked by this repo."""
+    """Return LLVM issue numbers with an open tracking issue in this repo."""
     result = subprocess.run(
         [
             "gh",
@@ -38,8 +39,10 @@ def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
             "list",
             "--repo",
             repo,
+            "--label",
+            TRACKING_LABEL,
             "--state",
-            "all",
+            "open",
             "--json",
             "title,body",
             "--limit",
