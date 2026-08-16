@@ -78,6 +78,8 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
         mock_unfilled.return_value = []
         mock_parse.return_value = ParsedReport(
             verdict="Reproduced",
+            issue_type="Bug",
+            tags="false-positive, confirmed",
             rationale="because",
             godbolt_link="https://godbolt.org/z/x",
         )

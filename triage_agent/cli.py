@@ -43,7 +43,7 @@ def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
             f"report.md for issue {args.issue_number} is incomplete "
             f"(still TBD: {', '.join(unfilled)})"
         )
-    report_template.parse_report(args.report_file)  # raises on a bad Verdict
+    report_template.parse_report(args.report_file)  # raises on a bad Verdict/Type
 
     source_title = report_template.extract_source_title(report_markdown)
     title = _build_tracking_title(source_title, args.issue_number)
