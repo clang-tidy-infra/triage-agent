@@ -25,7 +25,13 @@ SOURCE_MARKER_RE = re.compile(
 )
 
 
-def _extract_source_issue_number(body: str) -> int | None:
+def extract_source_issue_number(body: str) -> int | None:
+    """Read the LLVM issue number back out of a `- **Issue:** <url>` line.
+
+    Used both for dedup (scanning this repo's tracking issues) and by
+    cli.py to cross-check that a report.md's embedded issue matches the
+    --issue-number it's being filed under.
+    """
     match = SOURCE_MARKER_RE.search(body)
     return int(match.group(1)) if match else None
 
@@ -53,7 +59,7 @@ def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
         text=True,
     )
     issues = json.loads(result.stdout)
-    numbers = (_extract_source_issue_number(issue["body"] or "") for issue in issues)
+    numbers = (extract_source_issue_number(issue["body"] or "") for issue in issues)
     return {number for number in numbers if number is not None}
 
 

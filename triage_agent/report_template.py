@@ -24,10 +24,27 @@ ANALYSIS_FIELDS = [
     "Rationale",
 ]
 KNOWN_VERDICTS = {"Reproduced", "Not Reproduced", "Crash", "Uncertain"}
-# GitHub's org-level Issue Types for llvm/llvm-project - see AGENTS.md for
-# the full recommended-Tags taxonomy (kept there since it's a longer list
-# with descriptions, not something code needs to validate against).
+# GitHub's org-level Issue Types for llvm/llvm-project.
 KNOWN_TYPES = {"Bug", "Feature", "Task"}
+# llvm/llvm-project's clang-tidy label taxonomy - see AGENTS.md for the
+# description of each one; kept in sync with that list by hand.
+KNOWN_TAGS = {
+    "false-positive",
+    "false-negative",
+    "enhancement",
+    "check-request",
+    "confirmed",
+    "crash-on-valid",
+    "crash-on-invalid",
+    "invalid-code-generation",
+    "build-problem",
+    "code-cleanup",
+    "documentation",
+    "metaissue",
+    "question",
+    "duplicate",
+    "wontfix",
+}
 
 
 @dataclass
@@ -118,6 +135,11 @@ def find_unfilled_fields(content: str) -> list[str]:
     ]
 
 
+def _unknown_tags(tags: str) -> list[str]:
+    values = (tag.strip() for tag in tags.split(","))
+    return [tag for tag in values if tag and tag not in KNOWN_TAGS]
+
+
 def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
     content = Path(path).read_text(encoding="utf-8")
     verdict = _extract_field(content, "Verdict")
@@ -132,11 +154,19 @@ def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
             f"Unrecognized issue type {issue_type!r}; expected one of "
             f"{sorted(KNOWN_TYPES)}"
         )
+    tags = _extract_field(content, "Tags")
+    if tags.upper() not in {TBD, NOT_APPLICABLE}:
+        unknown = _unknown_tags(tags)
+        if unknown:
+            raise ValueError(
+                f"Unrecognized tag(s) {unknown}; expected values from "
+                f"{sorted(KNOWN_TAGS)}"
+            )
     godbolt_link = _extract_field(content, "Godbolt Link")
     return ParsedReport(
         verdict=verdict,
         issue_type=issue_type,
-        tags=_extract_field(content, "Tags"),
+        tags=tags,
         rationale=_extract_rationale(content),
         godbolt_link=(
             None if godbolt_link.upper() in {NOT_APPLICABLE, TBD, ""} else godbolt_link

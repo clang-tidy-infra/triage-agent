@@ -20,17 +20,17 @@ def _issue(number: int, created_at: str) -> LlvmIssue:
 class TestExtractSourceIssueNumber(unittest.TestCase):
     def test_extracts_number_from_issue_line(self):
         body = "## Source\n\n- **Issue:** https://github.com/llvm/llvm-project/issues/12345\n"
-        self.assertEqual(triage_db._extract_source_issue_number(body), 12345)
+        self.assertEqual(triage_db.extract_source_issue_number(body), 12345)
 
     def test_returns_none_when_marker_missing(self):
-        self.assertIsNone(triage_db._extract_source_issue_number("no marker here"))
+        self.assertIsNone(triage_db.extract_source_issue_number("no marker here"))
 
     def test_returns_none_for_empty_body(self):
-        self.assertIsNone(triage_db._extract_source_issue_number(""))
+        self.assertIsNone(triage_db.extract_source_issue_number(""))
 
     def test_ignores_unrelated_github_links(self):
         body = "See https://github.com/llvm/llvm-project/pull/999 for context."
-        self.assertIsNone(triage_db._extract_source_issue_number(body))
+        self.assertIsNone(triage_db.extract_source_issue_number(body))
 
 
 class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
