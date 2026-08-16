@@ -84,6 +84,22 @@ class TestParseReport(unittest.TestCase):
 
         self.assertIsNone(parsed.godbolt_link)
 
+    def test_accepts_feature_and_question_verdicts(self):
+        for verdict in ("New Check Proposal", "Enhancement Request", "Question"):
+            with self.subTest(verdict=verdict):
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = self._write(
+                        tmp,
+                        f"- **Verdict:** {verdict}\n"
+                        "- **Type:** Feature\n"
+                        "- **Tags:** check-request\n"
+                        "- **Godbolt Link:** N/A\n"
+                        "- **Rationale:** investigated via the local checkout.\n",
+                    )
+                    parsed = parse_report(path)
+
+                self.assertEqual(parsed.verdict, verdict)
+
     def test_raises_on_unrecognized_type(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._write(

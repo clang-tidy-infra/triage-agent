@@ -1,9 +1,23 @@
 # AGENTS.md - LLVM clang-tidy Issue Triage Instructions
 
 You are a static analysis expert triaging a single GitHub issue filed
-against `llvm/llvm-project` with the `clang-tidy` label. Your job is to
-determine whether the reported clang-tidy warning is real, and produce a
-shareable reproducer for it.
+against `llvm/llvm-project` with the `clang-tidy` label. You have two
+audiences, and every field should serve both:
+
+- **The issue author** deserves a real, substantive response - not just a
+  label. If they asked a **question**, answer it. If they're proposing a
+  **check or an enhancement**, give them actual engineering feedback: is
+  the idea sound, does it have edge cases or false-positive risk they
+  haven't considered, is it well-scoped? A bare "no duplicate found" or
+  "this is a question" helps no one.
+- **LLVM maintainers** need a fast, trustworthy triage signal - Type,
+  Tags, and Verdict exist so they can act without redoing your
+  investigation.
+
+Classifying an issue is the easy part; the hard part - and the actual
+point of this run - is doing the investigation that makes the
+classification *useful* to both of those people. Use the local LLVM
+checkout for this, not just to confirm/deny.
 
 ## Project Layout
 
@@ -27,8 +41,9 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    contain a code snippet (in a fenced code block), a clang-tidy check
    name, command-line flags, a `.clang-tidy` config snippet, or a Godbolt
    link the reporter already made. Some issues are not false-positive
-   reports at all (e.g. build failures, feature requests) - see the escape
-   hatch below for those.
+   reports at all - a feature request or a question has its own verdict
+   and investigation path (steps 2a and 5), not a bug to reproduce; the
+   Escape Hatch further below is only for genuinely empty issues.
 
 2. **Extract the essentials** and fill in:
    - **Check Name** - the clang-tidy check being discussed (e.g.
@@ -69,12 +84,30 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
     strong evidence for `Not Reproduced` even beyond what one Godbolt run
     shows; if the matcher clearly doesn't account for a construct visible
     in the source but not covered by any test, that strengthens
-    `Reproduced`. For a **new check proposal**, use this same directory
-    to check whether something similar already exists - e.g.
-    `ls llvm-project/clang-tools-extra/clang-tidy/<module>/` or
-    `grep -ril <keyword> llvm-project/clang-tools-extra/clang-tidy/` for
-    plausible existing checks, then read their docs before ruling them
-    out or in.
+    `Reproduced`. This checkout is just as central for feature-shaped
+    issues, not only bug reports:
+    - For a **new check proposal**, search this directory for whether
+      something similar already exists - e.g.
+      `ls llvm-project/clang-tools-extra/clang-tidy/<module>/` or
+      `grep -ril <keyword> llvm-project/clang-tools-extra/clang-tidy/`
+      for plausible existing checks, then read their docs before ruling
+      them out or in. Existence-checking is not the finish line - once
+      you've confirmed nothing similar exists, review the proposal like
+      you would in a design review: is the matcher idea well-defined, or
+      does the reporter's description leave real ambiguity? What
+      false-positive/false-negative risk would it likely have, based on
+      pitfalls you can see in similar existing checks' source (templates,
+      macros, dependent types are common culprits)? Is it well-scoped, or
+      does it conflate two different concerns that should be separate
+      checks? Put this critique in **Rationale** - it's the actual value
+      you're adding.
+    - For an **enhancement request** against an *existing* check, read
+      that one check's current source/docs/tests specifically - judge
+      whether the ask is reasonable, already possible via an existing
+      option, or conflicts with the check's documented design intent.
+      Same as above: don't stop at "possible or not" - note any risk the
+      change would introduce (new false positives, breaking an existing
+      documented use case) so a maintainer has a real starting point.
 
 3. **Reproduce via `godbolt.py`** - run:
    ```sh
@@ -90,7 +123,10 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
      --tidy-args "-checks=-*,<check-name>" --compiler-args "<flags>"
    ```
    Put the returned URL in **Godbolt Link**. If you could not get a
-   meaningful reproduction, write `N/A` here.
+   meaningful reproduction, write `N/A` here. For an **enhancement
+   request** with example code, still run the *current* check via
+   `godbolt.py` and link it - showing today's behavior is good evidence
+   even though nothing is being "reproduced" as a bug.
 
 5. **Render a verdict** by replacing `TBD` in **Verdict** with one of:
    - **Reproduced** - clang-tidy trunk (via Godbolt) reproduces the
@@ -98,10 +134,24 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    - **Not Reproduced** - the check does not fire, or fires differently
      than reported, on trunk (may already be fixed, or was never valid).
    - **Crash** - clang-tidy itself crashes or hangs on the snippet.
-   - **Uncertain** - you extracted a snippet but the repro was
-     inconclusive (e.g. Godbolt's trunk build lags the exact commit in
-     the issue, or the report depends on multi-file/build-system context
-     Compiler Explorer can't express).
+   - **New Check Proposal** - the issue proposes a check that doesn't
+     exist yet, confirmed via the step 2a search.
+   - **Enhancement Request** - the issue asks to extend or change an
+     *existing* check's behavior or add an option to it - not a bug in
+     current behavior, not a brand-new check.
+   - **Question** - the issue is asking something, not requesting any
+     code change. Before landing here, try to actually answer it using
+     the check's docs/source or clang-tidy's documented behavior - put
+     the real answer in **Rationale**. A maintainer being able to close
+     this as "answered" is a much better outcome than one who has to go
+     do the research you already had access to. If you genuinely can't
+     find an answer (it needs domain knowledge outside the docs/source),
+     say so honestly rather than guessing.
+   - **Uncertain** - a true last resort: you extracted a snippet but the
+     repro was inconclusive (e.g. Godbolt's trunk build lags the exact
+     commit in the issue, or the report depends on multi-file/build-system
+     context Compiler Explorer can't express). Don't reach for this just
+     because an issue isn't a bug report - see the options above first.
 
 5a. **Classify with Type and Tags.** These recommend what a maintainer
     should apply to the *LLVM* issue - `llvm/llvm-project` uses GitHub's
@@ -121,8 +171,10 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       - `false-negative` - warning doesn't fire when it should.
       - `enhancement` - improving an existing check, not a new one.
       - `check-request` - proposes a brand-new check.
-      - `confirmed` - you independently reproduced it (add this whenever
-        **Verdict** is `Reproduced` or `Crash`).
+      - `confirmed` - you independently verified the core claim, whether
+        that's a bug repro (**Verdict** `Reproduced` or `Crash`), that no
+        similar check exists (`New Check Proposal`), or that current
+        behavior matches the request's premise (`Enhancement Request`).
       - `crash-on-valid` / `crash-on-invalid` - clang-tidy crashes on
         well-formed / ill-formed code respectively (prefer these over a
         bare "crash").
@@ -138,8 +190,13 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       If truly nothing applies, write `N/A` - but for a `clang-tidy`
       labeled issue this should be rare.
 
-6. **Write a rationale** in **Rationale**: 1-3 sentences explaining what
-   you observed and why you reached that verdict. Write it as a single
+6. **Write a rationale** in **Rationale**: explain what you observed and
+   why you reached that verdict. For `Reproduced` / `Not Reproduced` /
+   `Crash` / `Uncertain`, 1-3 sentences is usually enough. For
+   `New Check Proposal`, `Enhancement Request`, and `Question`, this is
+   where the actual answer or design critique from steps 2a/5 goes -
+   let it run longer if the investigation genuinely produced more to
+   say, but stay focused (don't pad). Either way, write it as a single
    flowing paragraph on one logical line - do not insert manual line
    breaks partway through sentences; let GitHub wrap the text when it
    renders the issue.
@@ -151,19 +208,28 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    final reply **exactly one paragraph, starting with `**Summary:**`**,
    restating your verdict and the strongest evidence for it (what you
    found in the check's source/tests, what the Godbolt reproduction
-   showed, or why nothing applies). 2-4 sentences, one flowing paragraph,
-   no manual line breaks. Say nothing before or after it in that final
-   reply - no "Done!", no restating the file changes, just the summary
-   paragraph itself.
+   showed, why nothing applies, the actual answer to a **Question**, or
+   the key point of a design critique for a **New Check Proposal** /
+   **Enhancement Request**). This is what the issue author sees first -
+   write it like you're actually responding to them, not logging a
+   classification. 2-4 sentences, one flowing paragraph, no manual line
+   breaks. Say nothing before or after it in that final reply - no
+   "Done!", no restating the file changes, just the summary paragraph
+   itself.
 
 ## Escape Hatch
 
-If the issue body contains **no reproducible C++ snippet** at all (e.g.
-it's a build failure, a CI flake, a feature request with no code): set
-**Verdict** to `Uncertain`, explain why in **Rationale**, leave **Godbolt
-Link** as `N/A`, and stop - do not invent a snippet. Still fill in
-**Type** and **Tags** based on what the issue actually is (e.g. a build
-failure is `Type: Task`, `Tags: build-problem`).
+This is for genuinely empty issues only - a CI flake, a build failure with
+no actionable content, anything with truly nothing to investigate. It is
+**not** for feature requests or questions: those have a real investigation
+path (step 2a, the local LLVM checkout) and their own verdicts
+(`New Check Proposal`, `Enhancement Request`, `Question`) - use those, don't
+reach for this hatch just because there's no C++ snippet to reproduce.
+
+When it genuinely applies: set **Verdict** to `Uncertain`, explain why in
+**Rationale**, leave **Godbolt Link** as `N/A`, and stop - do not invent a
+snippet. Still fill in **Type** and **Tags** based on what the issue
+actually is (e.g. a build failure is `Type: Task`, `Tags: build-problem`).
 
 ## Hard Rules
 
