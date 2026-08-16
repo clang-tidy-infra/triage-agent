@@ -18,10 +18,16 @@ ANALYSIS_FIELDS = [
     "Extracted Snippet",
     "Flags/Config",
     "Verdict",
+    "Type",
+    "Tags",
     "Godbolt Link",
     "Rationale",
 ]
 KNOWN_VERDICTS = {"Reproduced", "Not Reproduced", "Crash", "Uncertain"}
+# GitHub's org-level Issue Types for llvm/llvm-project - see AGENTS.md for
+# the full recommended-Tags taxonomy (kept there since it's a longer list
+# with descriptions, not something code needs to validate against).
+KNOWN_TYPES = {"Bug", "Feature", "Task"}
 
 
 @dataclass
@@ -53,6 +59,8 @@ def generate_report_template(
 - **Extracted Snippet:** {TBD}
 - **Flags/Config:** {TBD}
 - **Verdict:** {TBD}
+- **Type:** {TBD}
+- **Tags:** {TBD}
 - **Godbolt Link:** {TBD}
 - **Rationale:** {TBD}
 """
@@ -62,6 +70,8 @@ def generate_report_template(
 @dataclass
 class ParsedReport:
     verdict: str
+    issue_type: str
+    tags: str
     rationale: str
     godbolt_link: str | None
 
@@ -116,9 +126,17 @@ def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
             f"Unrecognized verdict {verdict!r}; expected one of "
             f"{sorted(KNOWN_VERDICTS)}"
         )
+    issue_type = _extract_field(content, "Type")
+    if issue_type.upper() != TBD and issue_type not in KNOWN_TYPES:
+        raise ValueError(
+            f"Unrecognized issue type {issue_type!r}; expected one of "
+            f"{sorted(KNOWN_TYPES)}"
+        )
     godbolt_link = _extract_field(content, "Godbolt Link")
     return ParsedReport(
         verdict=verdict,
+        issue_type=issue_type,
+        tags=_extract_field(content, "Tags"),
         rationale=_extract_rationale(content),
         godbolt_link=(
             None if godbolt_link.upper() in {NOT_APPLICABLE, TBD, ""} else godbolt_link

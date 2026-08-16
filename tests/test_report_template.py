@@ -30,6 +30,8 @@ class TestGenerateReportTemplate(unittest.TestCase):
         self.assertIn(INPUTS.llvm_issue_title, content)
         self.assertIn(INPUTS.llvm_issue_body, content)
         self.assertIn("**Verdict:** TBD", content)
+        self.assertIn("**Type:** TBD", content)
+        self.assertIn("**Tags:** TBD", content)
         self.assertIn("**Godbolt Link:** TBD", content)
         self.assertIn("**Rationale:** TBD", content)
 
@@ -53,6 +55,8 @@ class TestParseReport(unittest.TestCase):
             path = self._write(
                 tmp,
                 "- **Verdict:** Reproduced\n"
+                "- **Type:** Bug\n"
+                "- **Tags:** false-positive, confirmed\n"
                 "- **Godbolt Link:** https://godbolt.org/z/abc123\n"
                 "- **Rationale:** This is a real false positive because\n"
                 "  the check misfires on templates.\n",
@@ -60,6 +64,8 @@ class TestParseReport(unittest.TestCase):
             parsed = parse_report(path)
 
         self.assertEqual(parsed.verdict, "Reproduced")
+        self.assertEqual(parsed.issue_type, "Bug")
+        self.assertEqual(parsed.tags, "false-positive, confirmed")
         self.assertEqual(parsed.godbolt_link, "https://godbolt.org/z/abc123")
         self.assertIn("misfires on templates.", parsed.rationale)
 
@@ -68,12 +74,27 @@ class TestParseReport(unittest.TestCase):
             path = self._write(
                 tmp,
                 "- **Verdict:** Uncertain\n"
+                "- **Type:** Task\n"
+                "- **Tags:** question\n"
                 "- **Godbolt Link:** N/A\n"
                 "- **Rationale:** No reproducible snippet in the issue body.\n",
             )
             parsed = parse_report(path)
 
         self.assertIsNone(parsed.godbolt_link)
+
+    def test_raises_on_unrecognized_type(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Reproduced\n"
+                "- **Type:** Defect\n"
+                "- **Tags:** false-positive\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** garbled output.\n",
+            )
+            with self.assertRaises(ValueError):
+                parse_report(path)
 
     def test_raises_when_field_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,6 +118,8 @@ class TestParseReport(unittest.TestCase):
             path = self._write(
                 tmp,
                 "- **Verdict:** Reproduced\n"
+                "- **Type:** Bug\n"
+                "- **Tags:** false-positive\n"
                 "- **Godbolt Link:**\n"
                 "  https://godbolt.org/z/abc123\n"
                 "- **Rationale:** because.\n",
@@ -129,6 +152,8 @@ class TestFindUnfilledFields(unittest.TestCase):
                 "Extracted Snippet",
                 "Flags/Config",
                 "Verdict",
+                "Type",
+                "Tags",
                 "Godbolt Link",
                 "Rationale",
             ],
@@ -140,6 +165,8 @@ class TestFindUnfilledFields(unittest.TestCase):
             "- **Extracted Snippet:** ```cpp\\nint x;\\n```\n"
             "- **Flags/Config:** -checks=-*,bugprone-foo\n"
             "- **Verdict:** TBD\n"
+            "- **Type:** Bug\n"
+            "- **Tags:** false-positive\n"
             "- **Godbolt Link:** N/A\n"
             "- **Rationale:** still deciding.\n"
         )
