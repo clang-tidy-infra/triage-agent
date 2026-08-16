@@ -75,7 +75,6 @@ jobs:
     permissions:
       contents: read
       issues: write
-      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -103,19 +102,29 @@ jobs:
       - name: Generate report template
         run: triage-agent report-template --issue-number "$ISSUE_NUMBER" --output report.md
 
+      - name: Set up Node.js
+        if: env.AGENT_BACKEND == 'claude'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code CLI
+        if: env.AGENT_BACKEND == 'claude'
+        run: npm install -g @anthropic-ai/claude-code@2.1.233
+
       - name: Analyze issue with Claude Code
         if: env.AGENT_BACKEND == 'claude'
         continue-on-error: true
         timeout-minutes: 20
-        uses: anthropics/claude-code-action@9d7150bc8a3dae8149739a88019d192b579ad90c # v1.0.193
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: >-
-            report.md is pre-filled for one LLVM clang-tidy issue. Fill in
-            the TBD fields in the Analysis section in place, using
-            godbolt.py to reproduce. Do not touch the Source section.
-            Follow AGENTS.md.
-          claude_args: '--allowedTools "Bash,Read,Edit" --model claude-sonnet-5'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          claude -p "report.md is pre-filled for one LLVM clang-tidy \
+          issue. Fill in the TBD fields in the Analysis section in place, \
+          using godbolt.py to reproduce. Do not touch the Source section. \
+          Follow AGENTS.md." \
+          --allowedTools "Bash,Read,Edit" \
+          --model claude-sonnet-5
 
       - name: Install Cursor CLI
         if: env.AGENT_BACKEND == 'cursor'

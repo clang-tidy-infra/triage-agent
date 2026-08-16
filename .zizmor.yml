@@ -1,1 +1,6 @@
-rules: {}
+rules:
+  adhoc-packages:
+    ignore:
+      # Pinned installs of first-party CLI agent tools (Claude Code, Cursor),
+      # not backed by a lockfile since this repo has no JS/Node project.
+      - triage-new-issues.yaml
