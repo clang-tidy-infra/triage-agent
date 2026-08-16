@@ -42,8 +42,8 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    name, command-line flags, a `.clang-tidy` config snippet, or a Godbolt
    link the reporter already made. Some issues are not false-positive
    reports at all - a feature request or a question has its own verdict
-   and investigation path (steps 2a and 5), not a bug to reproduce; the
-   Escape Hatch further below is only for genuinely empty issues.
+   and investigation path (steps 2a, 2b, and 5), not a bug to reproduce;
+   the Escape Hatch further below is only for genuinely empty issues.
 
 2. **Extract the essentials** and fill in:
    - **Check Name** - the clang-tidy check being discussed (e.g.
@@ -108,6 +108,30 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       Same as above: don't stop at "possible or not" - note any risk the
       change would introduce (new false positives, breaking an existing
       documented use case) so a maintainer has a real starting point.
+
+2b. **Search for prior reports of the same thing.** `llvm/llvm-project`
+    has 1000+ historical `clang-tidy` issues (open and closed), and
+    duplicates are common - this applies to bug reports just as much as
+    feature requests, not only new-check proposals. You already have `gh`
+    available and authenticated for this:
+    ```sh
+    gh issue list --repo llvm/llvm-project --search "<query>" \
+      --label clang-tidy --state all \
+      --json number,title,url,state --limit 15
+    ```
+    - **Query**: prefer the **Check Name** you extracted in step 2 - it's
+      the highest-precision search term. For a new check proposal with no
+      established name yet, fall back to 2-3 distinctive keywords from the
+      issue title (avoid generic terms - they return noise from unrelated
+      parts of the monorepo, like libc++ or the sanitizers).
+    - **Judge, don't just list**: skim the returned titles, then
+      `gh issue view <number> --repo llvm/llvm-project` on the 3-5 most
+      plausible candidates to actually read their bodies before concluding
+      duplication - a matching check name alone doesn't mean the same
+      underlying bug or request. Exclude the current issue's own number
+      (visible in the Source section) from consideration.
+    - If you find a genuine duplicate or closely related prior report,
+      record it - see **Tags** (step 5a) and **Rationale** (step 6).
 
 3. **Reproduce via `godbolt.py`** - run:
    ```sh
@@ -185,8 +209,12 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       - `documentation` - docs-only issue.
       - `metaissue` - umbrella issue collecting several related issues.
       - `question` - not actually a bug report.
-      - `duplicate` / `wontfix` - only if evident from the issue itself
-        (e.g. reporter says so); don't guess these from silence.
+      - `duplicate` - add this whenever step 2b's search turned up a
+        genuine prior report; name it in **Rationale** (this one you
+        actively search for, not just note if the reporter mentions it).
+      - `wontfix` - only if evident from the issue itself (e.g. a
+        maintainer already said so in comments); don't guess this one
+        from silence.
       If truly nothing applies, write `N/A` - but for a `clang-tidy`
       labeled issue this should be rare.
 
@@ -196,10 +224,15 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    `New Check Proposal`, `Enhancement Request`, and `Question`, this is
    where the actual answer or design critique from steps 2a/5 goes -
    let it run longer if the investigation genuinely produced more to
-   say, but stay focused (don't pad). Either way, write it as a single
-   flowing paragraph on one logical line - do not insert manual line
-   breaks partway through sentences; let GitHub wrap the text when it
-   renders the issue.
+   say, but stay focused (don't pad). If step 2b found a duplicate or
+   closely related prior report, name the specific issue number/link and
+   briefly say how it relates (exact duplicate vs. related-but-distinct)
+   - this doesn't replace your technical verdict, a duplicate bug report
+   can still genuinely be `Reproduced`; it's additional context so a
+   maintainer can merge/close without redoing your search. Either way,
+   write it as a single flowing paragraph on one logical line - do not
+   insert manual line breaks partway through sentences; let GitHub wrap
+   the text when it renders the issue.
 
 7. **End with a final summary.** Once `report.md` is fully filled in,
    your last chat reply in this conversation is captured verbatim and
