@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
-      max-parallel: 2
+      max-parallel: 5
       fail-fast: false
       matrix:
         issue: ${{ fromJson(needs.discover.outputs.issues) }}
