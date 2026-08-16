@@ -16,7 +16,7 @@ AGENTS.md       # This file
 
 `report.md` has two sections:
 
-- **Source** (top) - the original issue's URL, number, title, and raw body.
+- **Source** (top) - the original issue's URL, title, and raw body.
   **Never edit this section.**
 - **Analysis** (bottom) - six fields, all starting as `TBD`, that you fill in.
 
@@ -70,7 +70,10 @@ AGENTS.md       # This file
      Compiler Explorer can't express).
 
 6. **Write a rationale** in **Rationale**: 1-3 sentences explaining what
-   you observed and why you reached that verdict.
+   you observed and why you reached that verdict. Write it as a single
+   flowing paragraph on one logical line - do not insert manual line
+   breaks partway through sentences; let GitHub wrap the text when it
+   renders the issue.
 
 ## Escape Hatch
 
@@ -88,3 +91,6 @@ Link** as `N/A`, and stop - do not invent a snippet.
   must be filled in, even if the value is `N/A`.
 - Be **conservative** - only mark `Reproduced` when Godbolt's output
   clearly matches the reported behavior.
+- Write **Rationale** as one unbroken line of prose, no manual line
+  breaks - a list item's continuation lines need indentation to render
+  correctly on GitHub, and mid-sentence breaks without it render broken.
