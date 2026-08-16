@@ -2,9 +2,9 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
+from triage_agent import cli, main
 from triage_agent.llvm_issues import LlvmIssue
 from triage_agent.report_template import ParsedReport
-from triage_agent import main
 
 
 def _issue(number: int) -> LlvmIssue:
@@ -55,17 +55,26 @@ class TestReportTemplateCommand(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         mock_fetch.assert_called_once_with(42)
         args, kwargs = mock_generate.call_args
-        self.assertEqual(args[0].llvm_issue_number, 42)
+        self.assertEqual(args[0].llvm_issue_url, _issue(42).url)
         self.assertEqual(kwargs["output"], "out.md")
+
+
+class TestBuildTrackingTitle(unittest.TestCase):
+    def test_copies_llvm_title_verbatim(self):
+        issue = _issue(42)
+        issue.title = "[clang-tidy] some-check false positive"
+        self.assertEqual(
+            cli._build_tracking_title(issue),
+            "[clang-tidy] some-check false positive (llvm#42)",
+        )
 
 
 class TestCreateTrackingIssueCommand(unittest.TestCase):
     @patch("triage_agent.triage_db.create_tracking_issue")
-    @patch("triage_agent.report_template.build_tracking_issue_body")
     @patch("triage_agent.report_template.parse_report")
     @patch("triage_agent.llvm_issues.fetch_issue")
     def test_creates_issue_when_verdict_filled_in(
-        self, mock_fetch, mock_parse, mock_build_body, mock_create
+        self, mock_fetch, mock_parse, mock_create
     ):
         mock_fetch.return_value = _issue(42)
         mock_parse.return_value = ParsedReport(
@@ -73,7 +82,6 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             rationale="because",
             godbolt_link="https://godbolt.org/z/x",
         )
-        mock_build_body.return_value = "body"
         mock_create.return_value = "https://github.com/vbvictor/triage-agent/issues/1"
 
         with (
@@ -91,7 +99,7 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_create.assert_called_once()
+        mock_create.assert_called_once_with(title="t (llvm#42)", body="report contents")
         mock_print.assert_called_once_with(
             "https://github.com/vbvictor/triage-agent/issues/1"
         )

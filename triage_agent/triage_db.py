@@ -1,11 +1,12 @@
 """Dedup database for LLVM issue triage, built on this repo's own issues.
 
 Each already-triaged LLVM issue has a corresponding tracking issue in
-vbvictor/triage-agent whose body contains a `**Source:** <url>` marker
-line. Dedup works by fetching ALL of this repo's issues each run and
-regex-extracting those markers client-side, deliberately avoiding
-GitHub's search-index API (which lags), since a full fetch-and-diff is
-cheap at this repo's scale.
+vbvictor/triage-agent whose body contains report.md's `- **Issue:** <url>`
+line (see report_template.py) pointing back at the source LLVM issue.
+Dedup works by fetching ALL of this repo's issues each run and
+regex-extracting that line client-side, deliberately avoiding GitHub's
+search-index API (which lags), since a full fetch-and-diff is cheap at
+this repo's scale.
 """
 
 import json
@@ -19,13 +20,13 @@ from triage_agent.llvm_issues import LlvmIssue
 TRIAGE_REPO = "vbvictor/triage-agent"
 TRACKING_LABEL = "clang-tidy-triage"
 SOURCE_MARKER_RE = re.compile(
-    r"\*\*Source:\*\*\s*(https://github\.com/llvm/llvm-project/issues/(\d+))"
+    r"-\s*\*\*Issue:\*\*\s*https://github\.com/llvm/llvm-project/issues/(\d+)"
 )
 
 
 def _extract_source_issue_number(body: str) -> int | None:
     match = SOURCE_MARKER_RE.search(body)
-    return int(match.group(2)) if match else None
+    return int(match.group(1)) if match else None
 
 
 def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
@@ -60,10 +61,6 @@ def select_new_issues(
     untracked = [issue for issue in llvm_issues if issue.number not in tracked]
     ordered = sorted(untracked, key=lambda issue: issue.created_at)
     return ordered[:cap]
-
-
-def build_source_marker(llvm_issue_url: str) -> str:
-    return f"**Source:** {llvm_issue_url}"
 
 
 def create_tracking_issue(
