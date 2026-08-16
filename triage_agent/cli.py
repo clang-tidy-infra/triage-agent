@@ -52,9 +52,17 @@ def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
         )
     report_template.parse_report(args.report_file)  # raises on a bad Verdict/Type
 
+    body = report_markdown
+    if args.agent_summary_file:
+        summary_path = Path(args.agent_summary_file)
+        if summary_path.exists():
+            body = report_template.append_agent_summary(
+                body, summary_path.read_text(encoding="utf-8")
+            )
+
     source_title = report_template.extract_source_title(report_markdown)
     title = _build_tracking_title(source_title, args.issue_number)
-    url = triage_db.create_tracking_issue(title=title, body=report_markdown)
+    url = triage_db.create_tracking_issue(title=title, body=body)
     print(url)
     return 0
 
@@ -97,6 +105,14 @@ def _add_create_tracking_issue_parser(subparsers: argparse._SubParsersAction) ->
     create_parser.add_argument("--issue-number", type=int, required=True)
     create_parser.add_argument(
         "--report-file", default=report_template.REPORT_TEMPLATE_PATH
+    )
+    create_parser.add_argument(
+        "--agent-summary-file",
+        default=None,
+        help=(
+            "Optional file with the agent's final chat reply, appended to "
+            "the tracking issue as a details block if present and non-empty"
+        ),
     )
     create_parser.set_defaults(func=_cmd_create_tracking_issue)
 

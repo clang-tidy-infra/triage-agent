@@ -124,6 +124,23 @@ def extract_source_title(content: str) -> str:
     return _extract_field(content, "Title")
 
 
+def append_agent_summary(body: str, summary: str) -> str:
+    """Append the agent's final chat reply to a tracking issue body.
+
+    `summary` is the agent's captured final response (its `**Summary:**`
+    paragraph per AGENTS.md) - a no-op if blank, e.g. when the run used a
+    backend or failure mode that never produced one.
+    """
+    summary = summary.strip()
+    if not summary:
+        return body
+    return (
+        f"{body}\n"
+        "<details>\n<summary><b>Agent Summary</b> (click to expand)</summary>\n\n"
+        f"{summary}\n\n</details>\n"
+    )
+
+
 def find_unfilled_fields(content: str) -> list[str]:
     """Return the names of any Analysis fields the agent left as TBD."""
     return [

@@ -144,6 +144,18 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    breaks partway through sentences; let GitHub wrap the text when it
    renders the issue.
 
+7. **End with a final summary.** Once `report.md` is fully filled in,
+   your last chat reply in this conversation is captured verbatim and
+   appended to the tracking issue - it is not decoration, it's the
+   human-facing wrap-up maintainers will actually read first. Make that
+   final reply **exactly one paragraph, starting with `**Summary:**`**,
+   restating your verdict and the strongest evidence for it (what you
+   found in the check's source/tests, what the Godbolt reproduction
+   showed, or why nothing applies). 2-4 sentences, one flowing paragraph,
+   no manual line breaks. Say nothing before or after it in that final
+   reply - no "Done!", no restating the file changes, just the summary
+   paragraph itself.
+
 ## Escape Hatch
 
 If the issue body contains **no reproducible C++ snippet** at all (e.g.
