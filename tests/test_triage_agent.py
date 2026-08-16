@@ -40,8 +40,32 @@ class TestDiscoverCommand(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_fetch.assert_called_once()
+        mock_tracked.assert_called_once_with()
         mock_select.assert_called_once_with(mock_fetch.return_value, {1}, cap=1)
         mock_print.assert_called_once_with("[2]")
+
+    @patch("triage_agent.triage_db.select_new_issues")
+    @patch("triage_agent.triage_db.fetch_tracked_llvm_issue_numbers")
+    @patch("triage_agent.llvm_issues.fetch_untagged_clang_tidy_issues")
+    @patch("triage_agent.llvm_issues.fetch_recent_clang_tidy_issues")
+    def test_backlog_mode_uses_untagged_fetch(
+        self, mock_fetch_recent, mock_fetch_untagged, mock_tracked, mock_select
+    ):
+        mock_fetch_untagged.return_value = [_issue(1)]
+        mock_tracked.return_value = set()
+        mock_select.return_value = [_issue(1)]
+
+        with patch("builtins.print") as mock_print:
+            exit_code = main(["discover", "--mode", "backlog", "--cap", "5"])
+
+        self.assertEqual(exit_code, 0)
+        mock_fetch_untagged.assert_called_once()
+        mock_fetch_recent.assert_not_called()
+        mock_tracked.assert_called_once_with(state="all")
+        mock_select.assert_called_once_with(
+            mock_fetch_untagged.return_value, set(), cap=5
+        )
+        mock_print.assert_called_once_with("[1]")
 
 
 class TestReportTemplateCommand(unittest.TestCase):

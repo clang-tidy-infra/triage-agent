@@ -1,18 +1,14 @@
-name: Triage new clang-tidy issues
+name: Triage backlog clang-tidy issues
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
-      since-days:
-        description: 'Only consider LLVM issues created within this many days'
-        required: false
-        default: '7'
       cap:
         description: 'Maximum number of issues to triage in this run'
         required: false
-        default: '1'
+        default: '5'
       agent-backend:
         description: 'Which AI agent to use for analysis'
         required: false
@@ -36,9 +32,8 @@ jobs:
   discover:
     uses: ./.github/workflows/discover-issues.yaml
     with:
-      mode: 'recent'
-      since-days: ${{ inputs.since-days || '7' }}
-      cap: ${{ inputs.cap || '1' }}
+      mode: 'backlog'
+      cap: ${{ inputs.cap || '5' }}
       issue-number: ${{ inputs.issue-number || '' }}
 
   triage:

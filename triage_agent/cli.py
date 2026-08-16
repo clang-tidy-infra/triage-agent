@@ -11,9 +11,17 @@ from triage_agent import llvm_issues, report_template, triage_db
 
 
 def _cmd_discover(args: argparse.Namespace) -> int:
-    since = datetime.now(timezone.utc) - timedelta(days=args.since_days)
-    candidates = llvm_issues.fetch_recent_clang_tidy_issues(since)
-    tracked = triage_db.fetch_tracked_llvm_issue_numbers()
+    if args.mode == "backlog":
+        candidates = llvm_issues.fetch_untagged_clang_tidy_issues()
+        # A closed backlog tracking issue means "handled" permanently, not
+        # "reconsider me" - the LLVM issue's real labels don't change just
+        # because we recommended some, so it would otherwise keep matching
+        # the untagged query every day until someone applies them.
+        tracked = triage_db.fetch_tracked_llvm_issue_numbers(state="all")
+    else:
+        since = datetime.now(timezone.utc) - timedelta(days=args.since_days)
+        candidates = llvm_issues.fetch_recent_clang_tidy_issues(since)
+        tracked = triage_db.fetch_tracked_llvm_issue_numbers()
     new_issues = triage_db.select_new_issues(candidates, tracked, cap=args.cap)
     print(json.dumps([issue.number for issue in new_issues]))
     return 0
@@ -82,6 +90,15 @@ def _add_discover_parser(subparsers: argparse._SubParsersAction) -> None:
         type=int,
         default=1,
         help="Maximum number of issues to select per run (default: 1)",
+    )
+    discover_parser.add_argument(
+        "--mode",
+        choices=["recent", "backlog"],
+        default="recent",
+        help=(
+            "'recent' uses --since-days; 'backlog' sweeps older issues "
+            "missing all recognized triage labels/Type (default: recent)"
+        ),
     )
     discover_parser.set_defaults(func=_cmd_discover)
 

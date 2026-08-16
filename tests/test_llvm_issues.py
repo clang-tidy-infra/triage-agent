@@ -61,6 +61,36 @@ class TestFetchRecentClangTidyIssues(unittest.TestCase):
         self.assertEqual(result[1].body, "")
 
 
+class TestFetchUntaggedClangTidyIssues(unittest.TestCase):
+    @patch("triage_agent.llvm_issues.subprocess.run")
+    def test_builds_expected_gh_command(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="[]")
+
+        llvm_issues.fetch_untagged_clang_tidy_issues()
+
+        (argv,), kwargs = mock_run.call_args
+        self.assertEqual(argv[:3], ["gh", "issue", "list"])
+        self.assertIn("--repo", argv)
+        self.assertEqual(argv[argv.index("--repo") + 1], "llvm/llvm-project")
+        self.assertIn("--label", argv)
+        self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy")
+        self.assertIn("--state", argv)
+        self.assertEqual(argv[argv.index("--state") + 1], "open")
+        self.assertIn("--search", argv)
+        self.assertEqual(argv[argv.index("--search") + 1], llvm_issues.UNTAGGED_QUERY)
+        self.assertTrue(kwargs["check"])
+
+    @patch("triage_agent.llvm_issues.subprocess.run")
+    def test_sorts_oldest_first_without_date_filtering(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout=json.dumps([NEWEST_ISSUE, OLD_ISSUE, NEW_ISSUE])
+        )
+
+        result = llvm_issues.fetch_untagged_clang_tidy_issues()
+
+        self.assertEqual([issue.number for issue in result], [1, 2, 3])
+
+
 class TestFetchIssue(unittest.TestCase):
     @patch("triage_agent.llvm_issues.subprocess.run")
     def test_fetches_single_issue(self, mock_run):

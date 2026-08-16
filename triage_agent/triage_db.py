@@ -3,11 +3,11 @@
 Each already-triaged LLVM issue has a corresponding tracking issue in
 vbvictor/triage-agent whose body contains report.md's `- **Issue:** <url>`
 line (see report_template.py) pointing back at the source LLVM issue.
-Dedup works by fetching this repo's OPEN tracking issues each run and
+Dedup works by fetching this repo's tracking issues each run and
 regex-extracting that line client-side, deliberately avoiding GitHub's
 search-index API (which lags), since a full fetch-and-diff is cheap at
-this repo's scale. Only open tracking issues count: closing one is how
-you tell the bot to reconsider that LLVM issue on a future run.
+this repo's scale. Which tracking-issue states count depends on the
+caller - see `fetch_tracked_llvm_issue_numbers`.
 """
 
 import json
@@ -36,8 +36,19 @@ def extract_source_issue_number(body: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
-    """Return LLVM issue numbers with an open tracking issue in this repo."""
+def fetch_tracked_llvm_issue_numbers(
+    repo: str = TRIAGE_REPO, state: str = "open"
+) -> set[int]:
+    """Return LLVM issue numbers with a tracking issue in this repo.
+
+    `state="open"` (the default, used by recent-issue discovery) means
+    closing a tracking issue tells the bot to reconsider that LLVM issue.
+    `state="all"` (used by backlog sweeps) means closing is a permanent
+    "handled" marker instead - reprocessing it must be requested
+    explicitly (e.g. via the manual --issue-number override), since a
+    backlog issue's real labels don't change just because we recommended
+    some in our own tracking issue.
+    """
     result = subprocess.run(
         [
             "gh",
@@ -48,7 +59,7 @@ def fetch_tracked_llvm_issue_numbers(repo: str = TRIAGE_REPO) -> set[int]:
             "--label",
             TRACKING_LABEL,
             "--state",
-            "open",
+            state,
             "--json",
             "title,body",
             "--limit",
