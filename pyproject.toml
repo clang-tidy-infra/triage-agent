@@ -13,7 +13,7 @@ authors = [
     {name = "Victor Baranov", email = "bar.victor.2002@gmail.com"},
 ]
 dependencies = [
-    "requests>=2.31",
+    "requests>=2.34.2",
 ]
 keywords = [
     "clang-tidy",
