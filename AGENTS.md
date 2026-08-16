@@ -9,9 +9,10 @@ shareable reproducer for it.
 
 ```text
 .
-report.md      # This run's report - edit it in place
-godbolt.py      # Helper CLI to run clang-tidy trunk via Compiler Explorer
-AGENTS.md       # This file
+report.md                          # This run's report - edit it in place
+godbolt.py                         # Helper CLI to run clang-tidy trunk via Compiler Explorer
+AGENTS.md                          # This file
+llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built) - see step 2a
 ```
 
 `report.md` has two sections:
@@ -41,6 +42,39 @@ AGENTS.md       # This file
      (e.g. `-std=c++20`) mentioned in the issue. Default to
      `-checks=-*,<check-name>` and `-std=c++20` if the issue doesn't
      specify.
+
+2a. **Read the check's real implementation, docs, and tests** before
+    judging anything - `llvm-project/clang-tools-extra/` is checked out
+    locally for exactly this (source only, not built - you're reading
+    it, not compiling it):
+    - **Source** - `llvm-project/clang-tools-extra/clang-tidy/<module>/`
+      for files whose name matches the check (hyphenated names map to
+      CamelCase filenames, e.g. `bugprone-use-after-move` →
+      `UseAfterMoveCheck.cpp`/`.h`). Read the matcher logic and
+      diagnostic conditions to understand what the check actually does
+      and any documented edge cases.
+    - **Docs** -
+      `llvm-project/clang-tools-extra/docs/clang-tidy/checks/<module>/<rest>.rst`
+      (e.g. `bugprone/use-after-move.rst`) - the documented intent and
+      known limitations.
+    - **Tests** -
+      `llvm-project/clang-tools-extra/test/clang-tidy/checkers/<module>/<rest>.cpp`
+      - existing test cases show what the check is *supposed* to flag
+      and *supposed* to ignore; compare the reported snippet against
+      these to judge whether it's already-known behavior or a genuine
+      gap.
+    Use this to inform **Verdict** and **Rationale** below, not just the
+    Godbolt reproduction - e.g. if the test suite already has a case
+    covering the exact pattern reported (and expects no warning), that's
+    strong evidence for `Not Reproduced` even beyond what one Godbolt run
+    shows; if the matcher clearly doesn't account for a construct visible
+    in the source but not covered by any test, that strengthens
+    `Reproduced`. For a **new check proposal**, use this same directory
+    to check whether something similar already exists - e.g.
+    `ls llvm-project/clang-tools-extra/clang-tidy/<module>/` or
+    `grep -ril <keyword> llvm-project/clang-tools-extra/clang-tidy/` for
+    plausible existing checks, then read their docs before ruling them
+    out or in.
 
 3. **Reproduce via `godbolt.py`** - run:
    ```sh

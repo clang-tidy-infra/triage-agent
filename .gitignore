@@ -1,5 +1,6 @@
 # triage-agent working files
 report.md
+/llvm-project/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
