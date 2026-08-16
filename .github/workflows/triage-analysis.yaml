@@ -1,0 +1,130 @@
+name: Triage analysis
+
+on:
+  workflow_call:
+    inputs:
+      issues:
+        description: 'JSON array of LLVM issue numbers to triage'
+        required: true
+        type: string
+      agent-backend:
+        description: 'Which AI agent to use for analysis'
+        required: false
+        type: string
+        default: 'claude'
+    secrets:
+      claude-code-oauth-token:
+        required: false
+      cursor-api-key:
+        required: false
+
+permissions: {}
+
+jobs:
+  triage:
+    if: inputs.issues != '[]'
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        issue: ${{ fromJson(inputs.issues) }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_NUMBER: ${{ matrix.issue }}
+      AGENT_BACKEND: ${{ inputs.agent-backend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install triage-agent
+        run: pip install -e .
+
+      - name: Generate report template
+        run: triage-agent report-template --issue-number "$ISSUE_NUMBER" --output report.md
+
+      - name: Checkout clang-tidy source, docs, and tests from LLVM
+        run: |
+          git clone --filter=blob:none --sparse --depth 1 \
+            https://github.com/llvm/llvm-project.git llvm-project
+          git -C llvm-project sparse-checkout set clang-tools-extra
+
+      - name: Set up Node.js
+        if: env.AGENT_BACKEND == 'claude'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code CLI
+        if: env.AGENT_BACKEND == 'claude'
+        run: npm install -g @anthropic-ai/claude-code@2.1.233
+
+      - name: Analyze issue with Claude Code
+        if: env.AGENT_BACKEND == 'claude'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.claude-code-oauth-token }}
+        run: |
+          set -o pipefail
+          claude -p "report.md is pre-filled for one LLVM clang-tidy \
+          issue. Fill in the TBD fields in the Analysis section in place, \
+          using godbolt.py to reproduce. Do not touch the Source section. \
+          Follow AGENTS.md." \
+          --allowedTools "Bash,Read,Edit" \
+          --model claude-sonnet-5 \
+          --output-format stream-json \
+          --verbose \
+          --include-partial-messages \
+          | tee claude-output.jsonl | jq -C '.'
+
+      - name: Extract agent summary
+        if: env.AGENT_BACKEND == 'claude'
+        run: |
+          if [ -f claude-output.jsonl ]; then
+            jq -r 'select(.type == "result") | .result' claude-output.jsonl \
+              > agent-summary.txt || true
+          fi
+
+      - name: Install Cursor CLI
+        if: env.AGENT_BACKEND == 'cursor'
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Analyze issue with Cursor agent
+        if: env.AGENT_BACKEND == 'cursor'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          CURSOR_API_KEY: ${{ secrets.cursor-api-key }}
+        run: |
+          agent --trust -p "report.md is pre-filled for one LLVM clang-tidy \
+          issue. Fill in the TBD fields in the Analysis section in place, \
+          using godbolt.py to reproduce. Do not touch the Source section. \
+          Follow AGENTS.md." \
+          --model cursor-grok-4.6-high
+
+      - name: Upload report for debugging
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: report-${{ matrix.issue }}
+          path: |
+            report.md
+            agent-summary.txt
+
+      - name: Create tracking issue
+        run: >
+          triage-agent create-tracking-issue --issue-number "$ISSUE_NUMBER"
+          --report-file report.md --agent-summary-file agent-summary.txt

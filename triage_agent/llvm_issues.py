@@ -9,6 +9,13 @@ from typing import Any
 LLVM_REPO = "llvm/llvm-project"
 CLANG_TIDY_LABEL = "clang-tidy"
 ISSUE_JSON_FIELDS = "number,title,body,url,createdAt"
+# Issues missing every recognized triage label and a GitHub Issue Type -
+# mirrors the query the user already used manually to find untagged backlog.
+UNTAGGED_QUERY = (
+    "-label:false-positive -label:false-negative -label:enhancement "
+    "-label:check-request -label:documentation -label:build-problem "
+    "-label:code-cleanup -label:metaissue -label:question no:type"
+)
 
 
 @dataclass
@@ -68,6 +75,39 @@ def fetch_recent_clang_tidy_issues(
     issues = _parse_gh_issue_list_json(result.stdout)
     recent = [issue for issue in issues if issue.created_at >= since]
     return sorted(recent, key=lambda issue: issue.created_at)
+
+
+def fetch_untagged_clang_tidy_issues(
+    repo: str = LLVM_REPO,
+    label: str = CLANG_TIDY_LABEL,
+    limit: int = 500,
+) -> list[LlvmIssue]:
+    """Open clang-tidy issues missing every recognized triage label and a
+    GitHub Issue Type, oldest first - the backlog-sweep discovery mode."""
+    result = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--label",
+            label,
+            "--state",
+            "open",
+            "--search",
+            UNTAGGED_QUERY,
+            "--json",
+            ISSUE_JSON_FIELDS,
+            "--limit",
+            str(limit),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    issues = _parse_gh_issue_list_json(result.stdout)
+    return sorted(issues, key=lambda issue: issue.created_at)
 
 
 def fetch_issue(number: int, repo: str = LLVM_REPO) -> LlvmIssue:

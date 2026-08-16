@@ -1,0 +1,73 @@
+name: Discover clang-tidy issues
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "'recent' (last since-days) or 'backlog' (untagged, any age)"
+        required: true
+        type: string
+      since-days:
+        description: 'Only used in recent mode: how many days back to look'
+        required: false
+        type: string
+        default: '7'
+      cap:
+        description: 'Maximum number of issues to select'
+        required: false
+        type: string
+        default: '1'
+      issue-number:
+        description: 'Bypass discover/dedup and triage this issue number only'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      issues:
+        description: 'JSON array of LLVM issue numbers to triage'
+        value: ${{ jobs.discover.outputs.issues }}
+
+permissions: {}
+
+jobs:
+  discover:
+    permissions:
+      contents: read
+      issues: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      issues: ${{ steps.discover.outputs.issues }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install triage-agent
+        run: pip install -e .
+
+      - name: Find clang-tidy issues
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ inputs.mode }}
+          SINCE_DAYS: ${{ inputs.since-days }}
+          CAP: ${{ inputs.cap }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
+        run: |
+          if [ -n "$ISSUE_NUMBER" ]; then
+            if ! [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "issue-number must be a positive integer, got: $ISSUE_NUMBER" >&2
+              exit 1
+            fi
+            echo "Skipping discover/dedup: triaging issue #$ISSUE_NUMBER directly"
+            issues="[$ISSUE_NUMBER]"
+          else
+            issues=$(triage-agent discover --mode "$MODE" --since-days "$SINCE_DAYS" --cap "$CAP")
+          fi
+          echo "issues=$issues" >> "$GITHUB_OUTPUT"

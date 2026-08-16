@@ -64,6 +64,25 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         self.assertEqual(argv[argv.index("--state") + 1], "open")
         self.assertTrue(kwargs["check"])
 
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_state_all_includes_closed_tracking_issues(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout=json.dumps(
+                [
+                    {
+                        "title": "t1",
+                        "body": "- **Issue:** https://github.com/llvm/llvm-project/issues/9",
+                    }
+                ]
+            )
+        )
+
+        result = triage_db.fetch_tracked_llvm_issue_numbers(state="all")
+
+        self.assertEqual(result, {9})
+        (argv,), _ = mock_run.call_args
+        self.assertEqual(argv[argv.index("--state") + 1], "all")
+
 
 class TestSelectNewIssues(unittest.TestCase):
     def test_filters_tracked_and_caps_oldest_first(self):
