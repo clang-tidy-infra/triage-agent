@@ -148,3 +148,24 @@ jobs:
               --report-file report.md --agent-summary-file agent-summary.txt \
               --tracking-label "$TRACKING_LABEL"
           fi
+
+      - name: Report failure
+        if: failure()
+        env:
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$COMMENT_ISSUE_NUMBER" ]; then
+            gh issue comment "$COMMENT_ISSUE_NUMBER" --repo "$REPO" \
+              --body "Re-triage failed for llvm#$ISSUE_NUMBER: $RUN_URL"
+          else
+            health_issue=$(gh issue list --repo "$REPO" --label bot-failure \
+              --state open --json number --jq '.[0].number // empty')
+            if [ -z "$health_issue" ]; then
+              health_issue=$(gh issue create --repo "$REPO" --title "Bot run failures" \
+                --body "Tracking failed triage-agent runs - see comments below." \
+                --label bot-failure | grep -oE '[0-9]+$')
+            fi
+            gh issue comment "$health_issue" --repo "$REPO" \
+              --body "Run failed for llvm#$ISSUE_NUMBER: $RUN_URL"
+          fi
