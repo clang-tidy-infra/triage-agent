@@ -61,7 +61,9 @@ class TestDiscoverCommand(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         mock_fetch_untagged.assert_called_once()
         mock_fetch_recent.assert_not_called()
-        mock_tracked.assert_called_once_with(state="all")
+        mock_tracked.assert_called_once_with(
+            state="all", labels=["clang-tidy-triage-backlog"]
+        )
         mock_select.assert_called_once_with(
             mock_fetch_untagged.return_value, set(), cap=5
         )
@@ -132,15 +134,66 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
                     "42",
                     "--report-file",
                     "r.md",
+                    "--tracking-label",
+                    "clang-tidy-triage",
                 ]
             )
 
         self.assertEqual(exit_code, 0)
         mock_create.assert_called_once_with(
-            title="some-check false positive (llvm#42)", body="report contents"
+            title="some-check false positive (llvm#42)",
+            body="report contents",
+            labels=["clang-tidy-triage"],
         )
         mock_print.assert_called_once_with(
             "https://github.com/clang-tidy-infra/triage-agent/issues/1"
+        )
+
+    @patch("triage_agent.triage_db.create_tracking_issue")
+    @patch("triage_agent.report_template.extract_source_title")
+    @patch("triage_agent.report_template.parse_report")
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    @patch("triage_agent.triage_db.extract_source_issue_number")
+    def test_overrides_tracking_label_when_given(
+        self,
+        mock_source_number,
+        mock_unfilled,
+        mock_parse,
+        mock_extract_title,
+        mock_create,
+    ):
+        mock_source_number.return_value = 42
+        mock_unfilled.return_value = []
+        mock_parse.return_value = ParsedReport(
+            verdict="Reproduced",
+            issue_type="Bug",
+            tags="false-positive, confirmed",
+            rationale="because",
+            godbolt_link="https://godbolt.org/z/x",
+        )
+        mock_extract_title.return_value = "some-check false positive"
+        mock_create.return_value = (
+            "https://github.com/clang-tidy-infra/triage-agent/issues/1"
+        )
+
+        with patch("triage_agent.cli.Path.read_text", return_value="report contents"):
+            exit_code = main(
+                [
+                    "create-tracking-issue",
+                    "--issue-number",
+                    "42",
+                    "--report-file",
+                    "r.md",
+                    "--tracking-label",
+                    "clang-tidy-triage-backlog",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        mock_create.assert_called_once_with(
+            title="some-check false positive (llvm#42)",
+            body="report contents",
+            labels=["clang-tidy-triage-backlog"],
         )
 
     @patch("triage_agent.report_template.find_unfilled_fields")
@@ -153,7 +206,15 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             patch("triage_agent.cli.Path.read_text", return_value="report contents"),
             self.assertRaises(RuntimeError),
         ):
-            main(["create-tracking-issue", "--issue-number", "42"])
+            main(
+                [
+                    "create-tracking-issue",
+                    "--issue-number",
+                    "42",
+                    "--tracking-label",
+                    "clang-tidy-triage",
+                ]
+            )
 
     @patch("triage_agent.report_template.parse_report")
     @patch("triage_agent.report_template.find_unfilled_fields")
@@ -169,7 +230,15 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             patch("triage_agent.cli.Path.read_text", return_value="report contents"),
             self.assertRaises(ValueError),
         ):
-            main(["create-tracking-issue", "--issue-number", "42"])
+            main(
+                [
+                    "create-tracking-issue",
+                    "--issue-number",
+                    "42",
+                    "--tracking-label",
+                    "clang-tidy-triage",
+                ]
+            )
 
     @patch("triage_agent.report_template.find_unfilled_fields")
     @patch("triage_agent.triage_db.extract_source_issue_number")
@@ -182,7 +251,15 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
             patch("triage_agent.cli.Path.read_text", return_value="report contents"),
             self.assertRaises(RuntimeError),
         ):
-            main(["create-tracking-issue", "--issue-number", "42"])
+            main(
+                [
+                    "create-tracking-issue",
+                    "--issue-number",
+                    "42",
+                    "--tracking-label",
+                    "clang-tidy-triage",
+                ]
+            )
 
         mock_unfilled.assert_not_called()
 
@@ -228,6 +305,8 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
                     str(report_path),
                     "--agent-summary-file",
                     str(summary_path),
+                    "--tracking-label",
+                    "clang-tidy-triage",
                 ]
             )
 
@@ -276,11 +355,15 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
                     str(report_path),
                     "--agent-summary-file",
                     str(Path(tmp) / "does-not-exist.txt"),
+                    "--tracking-label",
+                    "clang-tidy-triage",
                 ]
             )
 
         self.assertEqual(exit_code, 0)
-        mock_create.assert_called_once_with(title="t (llvm#42)", body="report contents")
+        mock_create.assert_called_once_with(
+            title="t (llvm#42)", body="report contents", labels=["clang-tidy-triage"]
+        )
 
 
 if __name__ == "__main__":

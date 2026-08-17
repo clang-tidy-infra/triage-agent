@@ -53,6 +53,7 @@ jobs:
     with:
       issues: ${{ needs.discover.outputs.issues }}
       agent-backend: ${{ inputs.agent-backend || 'claude' }}
+      tracking-label: 'clang-tidy-triage'
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       cursor-api-key: ${{ secrets.CURSOR_API_KEY }}

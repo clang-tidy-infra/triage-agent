@@ -17,7 +17,9 @@ def _cmd_discover(args: argparse.Namespace) -> int:
         # "reconsider me" - the LLVM issue's real labels don't change just
         # because we recommended some, so it would otherwise keep matching
         # the untagged query every day until someone applies them.
-        tracked = triage_db.fetch_tracked_llvm_issue_numbers(state="all")
+        tracked = triage_db.fetch_tracked_llvm_issue_numbers(
+            state="all", labels=[triage_db.BACKLOG_TRACKING_LABEL]
+        )
     else:
         since = datetime.now(timezone.utc) - timedelta(days=args.since_days)
         candidates = llvm_issues.fetch_recent_clang_tidy_issues(since)
@@ -70,7 +72,9 @@ def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
 
     source_title = report_template.extract_source_title(report_markdown)
     title = _build_tracking_title(source_title, args.issue_number)
-    url = triage_db.create_tracking_issue(title=title, body=body)
+    url = triage_db.create_tracking_issue(
+        title=title, body=body, labels=[args.tracking_label]
+    )
     print(url)
     return 0
 
@@ -130,6 +134,11 @@ def _add_create_tracking_issue_parser(subparsers: argparse._SubParsersAction) ->
             "Optional file with the agent's final chat reply, appended to "
             "the tracking issue as a details block if present and non-empty"
         ),
+    )
+    create_parser.add_argument(
+        "--tracking-label",
+        required=True,
+        help="Label to apply to the tracking issue (e.g. clang-tidy-triage)",
     )
     create_parser.set_defaults(func=_cmd_create_tracking_issue)
 

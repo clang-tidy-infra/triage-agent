@@ -85,6 +85,31 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         (argv,), _ = mock_run.call_args
         self.assertEqual(argv[argv.index("--state") + 1], "all")
 
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_unions_results_across_multiple_labels(self, mock_run):
+        def fake_run(argv, **kwargs):
+            label = argv[argv.index("--label") + 1]
+            body = {
+                "clang-tidy-triage": (
+                    "- **Issue:** https://github.com/llvm/llvm-project/issues/1"
+                ),
+                "clang-tidy-triage-backlog": (
+                    "- **Issue:** https://github.com/llvm/llvm-project/issues/2"
+                ),
+            }[label]
+            return MagicMock(
+                stdout=json.dumps([{"title": "t", "body": body}]),
+            )
+
+        mock_run.side_effect = fake_run
+
+        result = triage_db.fetch_tracked_llvm_issue_numbers(
+            state="all", labels=["clang-tidy-triage", "clang-tidy-triage-backlog"]
+        )
+
+        self.assertEqual(result, {1, 2})
+        self.assertEqual(mock_run.call_count, 2)
+
 
 class TestSelectNewIssues(unittest.TestCase):
     def test_filters_tracked_and_caps_oldest_first(self):
@@ -118,6 +143,23 @@ class TestCreateTrackingIssue(unittest.TestCase):
         self.assertIn("--label", argv)
         self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy-triage")
         self.assertTrue(kwargs["check"])
+
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_creates_issue_with_multiple_labels(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout="https://github.com/clang-tidy-infra/triage-agent/issues/10\n"
+        )
+
+        triage_db.create_tracking_issue(
+            title="Title",
+            body="Body text",
+            labels=["clang-tidy-triage", "clang-tidy-triage-backlog"],
+        )
+
+        (argv,), _ = mock_run.call_args
+        label_indices = [i for i, a in enumerate(argv) if a == "--label"]
+        labels = [argv[i + 1] for i in label_indices]
+        self.assertEqual(labels, ["clang-tidy-triage", "clang-tidy-triage-backlog"])
 
 
 if __name__ == "__main__":

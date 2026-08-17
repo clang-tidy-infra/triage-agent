@@ -20,6 +20,7 @@ from triage_agent.llvm_issues import LlvmIssue
 
 TRIAGE_REPO = "clang-tidy-infra/triage-agent"
 TRACKING_LABEL = "clang-tidy-triage"
+BACKLOG_TRACKING_LABEL = "clang-tidy-triage-backlog"
 SOURCE_MARKER_RE = re.compile(
     r"-\s*\*\*Issue:\*\*\s*https://github\.com/llvm/llvm-project/issues/(\d+)"
 )
@@ -37,7 +38,7 @@ def extract_source_issue_number(body: str) -> int | None:
 
 
 def fetch_tracked_llvm_issue_numbers(
-    repo: str = TRIAGE_REPO, state: str = "open"
+    repo: str = TRIAGE_REPO, state: str = "open", labels: list[str] | None = None
 ) -> set[int]:
     """Return LLVM issue numbers with a tracking issue in this repo.
 
@@ -48,30 +49,45 @@ def fetch_tracked_llvm_issue_numbers(
     explicitly (e.g. via the manual --issue-number override), since a
     backlog issue's real labels don't change just because we recommended
     some in our own tracking issue.
+
+    `labels` defaults to `[TRACKING_LABEL]`. Passing multiple labels unions
+    their results (one `gh issue list` call per label) rather than
+    intersecting, since `--label` on a single call is an AND filter and
+    tracking issues only ever carry one of these labels, never both.
     """
-    result = subprocess.run(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            repo,
-            "--label",
-            TRACKING_LABEL,
-            "--state",
-            state,
-            "--json",
-            "title,body",
-            "--limit",
-            "1000",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    issues = json.loads(result.stdout)
-    numbers = (extract_source_issue_number(issue["body"] or "") for issue in issues)
-    return {number for number in numbers if number is not None}
+    if labels is None:
+        labels = [TRACKING_LABEL]
+    numbers: set[int] = set()
+    for label in labels:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--label",
+                label,
+                "--state",
+                state,
+                "--json",
+                "title,body",
+                "--limit",
+                "1000",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        issues = json.loads(result.stdout)
+        numbers.update(
+            number
+            for number in (
+                extract_source_issue_number(issue["body"] or "") for issue in issues
+            )
+            if number is not None
+        )
+    return numbers
 
 
 def select_new_issues(
@@ -84,33 +100,34 @@ def select_new_issues(
 
 
 def create_tracking_issue(
-    title: str, body: str, repo: str = TRIAGE_REPO, label: str = TRACKING_LABEL
+    title: str,
+    body: str,
+    repo: str = TRIAGE_REPO,
+    labels: list[str] | None = None,
 ) -> str:
     """Create a tracking issue in `repo` and return its URL."""
+    if labels is None:
+        labels = [TRACKING_LABEL]
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".md", delete=False, encoding="utf-8"
     ) as body_file:
         body_file.write(body)
         body_path = body_file.name
     try:
-        result = subprocess.run(
-            [
-                "gh",
-                "issue",
-                "create",
-                "--repo",
-                repo,
-                "--title",
-                title,
-                "--body-file",
-                body_path,
-                "--label",
-                label,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        argv = [
+            "gh",
+            "issue",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--body-file",
+            body_path,
+        ]
+        for label in labels:
+            argv += ["--label", label]
+        result = subprocess.run(argv, check=True, capture_output=True, text=True)
     finally:
         Path(body_path).unlink()
     return result.stdout.strip()
