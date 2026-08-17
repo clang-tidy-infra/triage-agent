@@ -165,6 +165,11 @@ def _unknown_tags(tags: str) -> list[str]:
     return [tag for tag in values if tag and tag not in KNOWN_TAGS]
 
 
+# `confirmed` means the core claim was independently verified true today -
+# incompatible with these verdicts by definition, see AGENTS.md.
+_VERDICTS_INCOMPATIBLE_WITH_CONFIRMED = {"Not Reproduced", "Uncertain", "Question"}
+
+
 def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
     content = Path(path).read_text(encoding="utf-8")
     verdict = _extract_field(content, "Verdict")
@@ -186,6 +191,16 @@ def parse_report(path: str = REPORT_TEMPLATE_PATH) -> ParsedReport:
             raise ValueError(
                 f"Unrecognized tag(s) {unknown}; expected values from "
                 f"{sorted(KNOWN_TAGS)}"
+            )
+        tag_values = {tag.strip() for tag in tags.split(",")}
+        if (
+            "confirmed" in tag_values
+            and verdict in _VERDICTS_INCOMPATIBLE_WITH_CONFIRMED
+        ):
+            raise ValueError(
+                f"Tags include 'confirmed' but Verdict is {verdict!r}; "
+                "'confirmed' means the core claim is true today and is "
+                "incompatible with Not Reproduced/Uncertain/Question"
             )
     godbolt_link = _extract_field(content, "Godbolt Link")
     return ParsedReport(

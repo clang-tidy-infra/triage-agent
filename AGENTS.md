@@ -195,10 +195,15 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       - `false-negative` - warning doesn't fire when it should.
       - `enhancement` - improving an existing check, not a new one.
       - `check-request` - proposes a brand-new check.
-      - `confirmed` - you independently verified the core claim, whether
-        that's a bug repro (**Verdict** `Reproduced` or `Crash`), that no
+      - `confirmed` - you independently verified the core claim is *true
+        today*: a bug repro (**Verdict** `Reproduced` or `Crash`), that no
         similar check exists (`New Check Proposal`), or that current
         behavior matches the request's premise (`Enhancement Request`).
+        Never pair this with **Verdict** `Not Reproduced`, `Uncertain`, or
+        `Question` - "I thoroughly verified this" is not the same claim as
+        "the thing being reported is real"; a `Not Reproduced` bug that
+        already looks fixed upstream is not `confirmed`, even if you're
+        confident in that conclusion.
       - `crash-on-valid` / `crash-on-invalid` - clang-tidy crashes on
         well-formed / ill-formed code respectively (prefer these over a
         bare "crash").
