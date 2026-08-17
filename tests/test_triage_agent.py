@@ -366,5 +366,61 @@ class TestCreateTrackingIssueCommand(unittest.TestCase):
         )
 
 
+class TestPostCommentCommand(unittest.TestCase):
+    @patch("triage_agent.triage_db.post_comment")
+    @patch("triage_agent.report_template.parse_report")
+    @patch("triage_agent.report_template.find_unfilled_fields")
+    @patch("triage_agent.triage_db.extract_source_issue_number")
+    def test_comments_analysis_section_only(
+        self,
+        mock_source_number,
+        mock_unfilled,
+        mock_parse,
+        mock_comment,
+    ):
+        mock_source_number.return_value = 42
+        mock_unfilled.return_value = []
+        mock_parse.return_value = ParsedReport(
+            verdict="Reproduced",
+            issue_type="Bug",
+            tags="false-positive, confirmed",
+            rationale="because",
+            godbolt_link="https://godbolt.org/z/x",
+        )
+        mock_comment.return_value = (
+            "https://github.com/clang-tidy-infra/triage-agent/issues/9#issuecomment-1"
+        )
+        report_contents = (
+            "## Source\n\n- **Issue:** https://github.com/llvm/llvm-project/issues/42\n"
+            "- **Title:** some-check false positive\n\n"
+            "## Analysis\n\n- **Verdict:** Reproduced\n"
+        )
+
+        with (
+            patch("triage_agent.cli.Path.read_text", return_value=report_contents),
+            patch("builtins.print") as mock_print,
+        ):
+            exit_code = main(
+                [
+                    "post-comment",
+                    "--issue-number",
+                    "42",
+                    "--comment-issue-number",
+                    "9",
+                    "--report-file",
+                    "r.md",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        mock_comment.assert_called_once_with(
+            issue_number=9,
+            body="## Analysis\n\n- **Verdict:** Reproduced",
+        )
+        mock_print.assert_called_once_with(
+            "https://github.com/clang-tidy-infra/triage-agent/issues/9#issuecomment-1"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

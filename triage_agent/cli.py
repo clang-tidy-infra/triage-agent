@@ -44,7 +44,13 @@ def _build_tracking_title(source_title: str, issue_number: int) -> str:
     return f"{source_title} (llvm#{issue_number})"
 
 
-def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
+def _validate_report(args: argparse.Namespace) -> str:
+    """Validate report.md against --issue-number and its own fields.
+
+    Shared by every command that consumes a filled-in report.md, since
+    they all need the same validated content before deciding what to do
+    with it.
+    """
     report_markdown = Path(args.report_file).read_text(encoding="utf-8")
 
     source_issue_number = triage_db.extract_source_issue_number(report_markdown)
@@ -61,19 +67,37 @@ def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
             f"(still TBD: {', '.join(unfilled)})"
         )
     report_template.parse_report(args.report_file)  # raises on a bad Verdict/Type
+    return report_markdown
 
-    body = report_markdown
+
+def _append_agent_summary_if_present(body: str, args: argparse.Namespace) -> str:
     if args.agent_summary_file:
         summary_path = Path(args.agent_summary_file)
         if summary_path.exists():
-            body = report_template.append_agent_summary(
+            return report_template.append_agent_summary(
                 body, summary_path.read_text(encoding="utf-8")
             )
+    return body
 
+
+def _cmd_create_tracking_issue(args: argparse.Namespace) -> int:
+    report_markdown = _validate_report(args)
+    body = _append_agent_summary_if_present(report_markdown, args)
     source_title = report_template.extract_source_title(report_markdown)
     title = _build_tracking_title(source_title, args.issue_number)
     url = triage_db.create_tracking_issue(
         title=title, body=body, labels=[args.tracking_label]
+    )
+    print(url)
+    return 0
+
+
+def _cmd_post_comment(args: argparse.Namespace) -> int:
+    report_markdown = _validate_report(args)
+    analysis = report_template.extract_analysis_section(report_markdown)
+    comment_body = _append_agent_summary_if_present(analysis, args)
+    url = triage_db.post_comment(
+        issue_number=args.comment_issue_number, body=comment_body
     )
     print(url)
     return 0
@@ -143,6 +167,32 @@ def _add_create_tracking_issue_parser(subparsers: argparse._SubParsersAction) ->
     create_parser.set_defaults(func=_cmd_create_tracking_issue)
 
 
+def _add_post_comment_parser(subparsers: argparse._SubParsersAction) -> None:
+    comment_parser = subparsers.add_parser(
+        "post-comment",
+        help="Post a filled-in report.md's Analysis section as a comment on an issue",
+    )
+    comment_parser.add_argument("--issue-number", type=int, required=True)
+    comment_parser.add_argument(
+        "--comment-issue-number",
+        type=int,
+        required=True,
+        help="Number of the issue in this repo to post the comment on",
+    )
+    comment_parser.add_argument(
+        "--report-file", default=report_template.REPORT_TEMPLATE_PATH
+    )
+    comment_parser.add_argument(
+        "--agent-summary-file",
+        default=None,
+        help=(
+            "Optional file with the agent's final chat reply, appended to "
+            "the comment as a details block if present and non-empty"
+        ),
+    )
+    comment_parser.set_defaults(func=_cmd_post_comment)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="triage-agent",
@@ -152,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_discover_parser(subparsers)
     _add_report_template_parser(subparsers)
     _add_create_tracking_issue_parser(subparsers)
+    _add_post_comment_parser(subparsers)
 
     args = parser.parse_args(argv)
     if hasattr(args, "func"):

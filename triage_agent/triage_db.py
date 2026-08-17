@@ -6,8 +6,9 @@ line (see report_template.py) pointing back at the source LLVM issue.
 Dedup works by fetching this repo's tracking issues each run and
 regex-extracting that line client-side, deliberately avoiding GitHub's
 search-index API (which lags), since a full fetch-and-diff is cheap at
-this repo's scale. Which tracking-issue states count depends on the
-caller - see `fetch_tracked_llvm_issue_numbers`.
+this repo's scale. Both open and closed tracking issues count as tracked
+- see `fetch_tracked_llvm_issue_numbers`. To force a re-triage, comment
+`/redo` on the tracking issue instead of closing/reopening it.
 """
 
 import json
@@ -38,17 +39,16 @@ def extract_source_issue_number(body: str) -> int | None:
 
 
 def fetch_tracked_llvm_issue_numbers(
-    repo: str = TRIAGE_REPO, state: str = "open", labels: list[str] | None = None
+    repo: str = TRIAGE_REPO, state: str = "all", labels: list[str] | None = None
 ) -> set[int]:
     """Return LLVM issue numbers with a tracking issue in this repo.
 
-    `state="open"` (the default, used by recent-issue discovery) means
-    closing a tracking issue tells the bot to reconsider that LLVM issue.
-    `state="all"` (used by backlog sweeps) means closing is a permanent
-    "handled" marker instead - reprocessing it must be requested
-    explicitly (e.g. via the manual --issue-number override), since a
-    backlog issue's real labels don't change just because we recommended
-    some in our own tracking issue.
+    `state="all"` (the default) means a closed tracking issue is a
+    permanent "handled" marker, not a signal to redo it - closing an
+    issue and having the bot silently recreate it later would be
+    surprising. Reprocessing an already-tracked issue must be requested
+    explicitly, either via the manual --issue-number override or by
+    commenting `/redo` on its tracking issue.
 
     `labels` defaults to `[TRACKING_LABEL]`. Passing multiple labels unions
     their results (one `gh issue list` call per label) rather than
@@ -128,6 +128,34 @@ def create_tracking_issue(
         for label in labels:
             argv += ["--label", label]
         result = subprocess.run(argv, check=True, capture_output=True, text=True)
+    finally:
+        Path(body_path).unlink()
+    return result.stdout.strip()
+
+
+def post_comment(issue_number: int, body: str, repo: str = TRIAGE_REPO) -> str:
+    """Post a comment on an existing issue in `repo` and return its URL."""
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
+    ) as body_file:
+        body_file.write(body)
+        body_path = body_file.name
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "comment",
+                str(issue_number),
+                "--repo",
+                repo,
+                "--body-file",
+                body_path,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     finally:
         Path(body_path).unlink()
     return result.stdout.strip()

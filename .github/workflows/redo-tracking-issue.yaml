@@ -1,0 +1,86 @@
+name: Redo tracking issue
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: redo-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  discover:
+    if: >
+      github.event.issue.pull_request == null
+      && contains(github.event.comment.body, '/redo')
+      && (contains(github.event.issue.labels.*.name, 'clang-tidy-triage')
+          || contains(github.event.issue.labels.*.name, 'clang-tidy-triage-backlog'))
+      && (github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'MEMBER')
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      issue-number: ${{ steps.extract.outputs.issue-number }}
+      tracking-label: ${{ steps.label.outputs.tracking-label }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install triage-agent
+        run: pip install -e .
+
+      - name: React to comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes
+
+      - name: Extract source LLVM issue number
+        id: extract
+        env:
+          TRACKING_ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          number=$(python3 -c "
+          import os
+          from triage_agent.triage_db import extract_source_issue_number
+          n = extract_source_issue_number(os.environ['TRACKING_ISSUE_BODY'])
+          print(n if n is not None else '')
+          ")
+          echo "issue-number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Determine tracking label
+        id: label
+        run: |
+          if [ "${{ contains(github.event.issue.labels.*.name, 'clang-tidy-triage-backlog') }}" = "true" ]; then
+            echo "tracking-label=clang-tidy-triage-backlog" >> "$GITHUB_OUTPUT"
+          else
+            echo "tracking-label=clang-tidy-triage" >> "$GITHUB_OUTPUT"
+          fi
+
+  redo:
+    needs: discover
+    if: needs.discover.outputs.issue-number != ''
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/triage-analysis.yaml
+    with:
+      issues: '[${{ needs.discover.outputs.issue-number }}]'
+      agent-backend: 'claude'
+      tracking-label: ${{ needs.discover.outputs.tracking-label }}
+      comment-issue-number: ${{ github.event.issue.number }}
+    secrets:
+      claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      cursor-api-key: ${{ secrets.CURSOR_API_KEY }}

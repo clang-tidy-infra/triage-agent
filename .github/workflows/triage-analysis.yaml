@@ -16,6 +16,13 @@ on:
         description: 'Which label to apply to the tracking issue'
         required: true
         type: string
+      comment-issue-number:
+        description: >-
+          If set, post the analysis as a comment on this issue instead of
+          creating a new tracking issue
+        required: false
+        type: string
+        default: ''
     secrets:
       claude-code-oauth-token:
         required: false
@@ -42,6 +49,7 @@ jobs:
       ISSUE_NUMBER: ${{ matrix.issue }}
       AGENT_BACKEND: ${{ inputs.agent-backend }}
       TRACKING_LABEL: ${{ inputs.tracking-label }}
+      COMMENT_ISSUE_NUMBER: ${{ inputs.comment-issue-number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -129,8 +137,14 @@ jobs:
             report.md
             agent-summary.txt
 
-      - name: Create tracking issue
-        run: >
-          triage-agent create-tracking-issue --issue-number "$ISSUE_NUMBER"
-          --report-file report.md --agent-summary-file agent-summary.txt
-          --tracking-label "$TRACKING_LABEL"
+      - name: Create tracking issue or post a comment
+        run: |
+          if [ -n "$COMMENT_ISSUE_NUMBER" ]; then
+            triage-agent post-comment --issue-number "$ISSUE_NUMBER" \
+              --comment-issue-number "$COMMENT_ISSUE_NUMBER" \
+              --report-file report.md --agent-summary-file agent-summary.txt
+          else
+            triage-agent create-tracking-issue --issue-number "$ISSUE_NUMBER" \
+              --report-file report.md --agent-summary-file agent-summary.txt \
+              --tracking-label "$TRACKING_LABEL"
+          fi
