@@ -43,5 +43,6 @@ lint:
 	fi
 
 clean:
-	rm -rf __pycache__/ tests/__pycache__/
+	rm -rf __pycache__/ tests/__pycache__/ triage_agent/__pycache__/
 	rm -rf *.egg-info/
+	rm -rf venv/ .mypy_cache/ .ruff_cache/ .pytest_cache/
