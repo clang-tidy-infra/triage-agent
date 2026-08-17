@@ -126,6 +126,19 @@ class TestParseReport(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_report(path)
 
+    def test_raises_when_confirmed_paired_with_not_reproduced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(
+                tmp,
+                "- **Verdict:** Not Reproduced\n"
+                "- **Type:** Bug\n"
+                "- **Tags:** false-positive, confirmed\n"
+                "- **Godbolt Link:** N/A\n"
+                "- **Rationale:** no longer warns on trunk.\n",
+            )
+            with self.assertRaises(ValueError):
+                parse_report(path)
+
     def test_accepts_multiple_known_tags(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._write(
