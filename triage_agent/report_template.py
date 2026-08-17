@@ -132,6 +132,18 @@ def extract_source_title(content: str) -> str:
     return _extract_field(content, "Title")
 
 
+def extract_analysis_section(content: str) -> str:
+    """Return the '## Analysis' section onward, dropping '## Source'.
+
+    Used for /redo comments, which shouldn't repeat the original LLVM
+    issue body already visible on the tracking issue itself.
+    """
+    match = re.search(r"^## Analysis\b.*", content, re.MULTILINE | re.DOTALL)
+    if not match:
+        raise ValueError("report.md missing '## Analysis' section")
+    return match.group(0).strip()
+
+
 def append_agent_summary(body: str, summary: str) -> str:
     """Append the agent's final chat reply to a tracking issue body.
 

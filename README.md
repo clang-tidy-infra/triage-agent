@@ -41,5 +41,8 @@ After that, close the issue in this repository as completed - the issue was succ
 
 ## When to close issues in this repository
 
-- `clang-tidy-triage`: leave **open** once handled - closing tells the bot to retry it on a future hourly run.
-- `clang-tidy-triage-backlog`: **close** once handled - the bot won't auto-retry a closed one.
+Close a tracking issue once you've handled it, for both labels - closing is
+permanent and the bot won't auto-retry it.
+
+To force a re-triage (e.g. the check was fixed upstream, or the agent got it wrong), comment `/redo`
+on the tracking issue. The bot re-runs the same analysis and posts the fresh result as a new comment.

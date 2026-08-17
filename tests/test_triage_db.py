@@ -63,11 +63,11 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         self.assertIn("--label", argv)
         self.assertEqual(argv[argv.index("--label") + 1], "clang-tidy-triage")
         self.assertIn("--state", argv)
-        self.assertEqual(argv[argv.index("--state") + 1], "open")
+        self.assertEqual(argv[argv.index("--state") + 1], "all")
         self.assertTrue(kwargs["check"])
 
     @patch("triage_agent.triage_db.subprocess.run")
-    def test_state_all_includes_closed_tracking_issues(self, mock_run):
+    def test_state_open_can_be_explicitly_requested(self, mock_run):
         mock_run.return_value = MagicMock(
             stdout=json.dumps(
                 [
@@ -79,11 +79,11 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
             )
         )
 
-        result = triage_db.fetch_tracked_llvm_issue_numbers(state="all")
+        result = triage_db.fetch_tracked_llvm_issue_numbers(state="open")
 
         self.assertEqual(result, {9})
         (argv,), _ = mock_run.call_args
-        self.assertEqual(argv[argv.index("--state") + 1], "all")
+        self.assertEqual(argv[argv.index("--state") + 1], "open")
 
     @patch("triage_agent.triage_db.subprocess.run")
     def test_unions_results_across_multiple_labels(self, mock_run):
@@ -160,6 +160,27 @@ class TestCreateTrackingIssue(unittest.TestCase):
         label_indices = [i for i, a in enumerate(argv) if a == "--label"]
         labels = [argv[i + 1] for i in label_indices]
         self.assertEqual(labels, ["clang-tidy-triage", "clang-tidy-triage-backlog"])
+
+
+class TestPostComment(unittest.TestCase):
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_comments_via_body_file_and_returns_url(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout="https://github.com/clang-tidy-infra/triage-agent/issues/9#issuecomment-1\n"
+        )
+
+        url = triage_db.post_comment(issue_number=9, body="Body text")
+
+        self.assertEqual(
+            url,
+            "https://github.com/clang-tidy-infra/triage-agent/issues/9#issuecomment-1",
+        )
+        (argv,), kwargs = mock_run.call_args
+        self.assertEqual(argv[:3], ["gh", "issue", "comment"])
+        self.assertIn("9", argv)
+        self.assertIn("--body-file", argv)
+        self.assertNotIn("--label", argv)
+        self.assertTrue(kwargs["check"])
 
 
 if __name__ == "__main__":

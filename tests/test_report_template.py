@@ -6,6 +6,7 @@ from triage_agent import triage_db
 from triage_agent.report_template import (
     ReportTemplateInputs,
     append_agent_summary,
+    extract_analysis_section,
     extract_source_title,
     find_unfilled_fields,
     generate_report_template,
@@ -253,6 +254,25 @@ class TestExtractSourceTitle(unittest.TestCase):
             content = Path(output).read_text(encoding="utf-8")
 
         self.assertEqual(extract_source_title(content), INPUTS.llvm_issue_title)
+
+
+class TestExtractAnalysisSection(unittest.TestCase):
+    def test_drops_source_section(self):
+        content = (
+            "## Source\n\n- **Issue:** https://github.com/llvm/llvm-project/issues/1\n"
+            "- **Title:** some-check false positive\n\n"
+            "## Analysis\n\n- **Verdict:** Reproduced\n- **Type:** Bug\n"
+        )
+
+        result = extract_analysis_section(content)
+
+        self.assertTrue(result.startswith("## Analysis"))
+        self.assertNotIn("## Source", result)
+        self.assertIn("**Verdict:** Reproduced", result)
+
+    def test_raises_when_analysis_section_missing(self):
+        with self.assertRaises(ValueError):
+            extract_analysis_section("## Source\n\nno analysis here\n")
 
 
 class TestAppendAgentSummary(unittest.TestCase):
