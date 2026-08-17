@@ -136,12 +136,16 @@ def extract_analysis_section(content: str) -> str:
     """Return the '## Analysis' section onward, dropping '## Source'.
 
     Used for /redo comments, which shouldn't repeat the original LLVM
-    issue body already visible on the tracking issue itself.
+    issue body already visible on the tracking issue itself. Takes the
+    *last* '## Analysis' heading rather than the first: the quoted
+    original issue body inside '## Source' could itself contain a
+    literal '## Analysis' line, and the real one is always the final
+    section in a well-formed report.md.
     """
-    match = re.search(r"^## Analysis\b.*", content, re.MULTILINE | re.DOTALL)
-    if not match:
+    matches = list(re.finditer(r"^## Analysis\b", content, re.MULTILINE))
+    if not matches:
         raise ValueError("report.md missing '## Analysis' section")
-    return match.group(0).strip()
+    return content[matches[-1].start() :].strip()
 
 
 def append_agent_summary(body: str, summary: str) -> str:

@@ -274,6 +274,21 @@ class TestExtractAnalysisSection(unittest.TestCase):
         with self.assertRaises(ValueError):
             extract_analysis_section("## Source\n\nno analysis here\n")
 
+    def test_uses_last_occurrence_when_source_quotes_a_fake_heading(self):
+        content = (
+            "## Source\n\n"
+            "- **Issue:** https://github.com/llvm/llvm-project/issues/1\n"
+            "- **Title:** t\n\n"
+            "<details>\n<summary>Original issue body</summary>\n\n"
+            "## Analysis\nThe reporter pasted a fake heading here.\n\n"
+            "</details>\n\n"
+            "## Analysis\n\n- **Verdict:** Reproduced\n"
+        )
+
+        result = extract_analysis_section(content)
+
+        self.assertEqual(result, "## Analysis\n\n- **Verdict:** Reproduced")
+
 
 class TestAppendAgentSummary(unittest.TestCase):
     def test_wraps_summary_in_details_block(self):
