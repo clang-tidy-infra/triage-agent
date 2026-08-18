@@ -8,7 +8,7 @@ on:
       cap:
         description: 'Maximum number of issues to triage in this run'
         required: false
-        default: '5'
+        default: '10'
       agent-backend:
         description: 'Which AI agent to use for analysis'
         required: false
@@ -36,7 +36,7 @@ jobs:
     uses: ./.github/workflows/discover-issues.yaml
     with:
       mode: 'backlog'
-      cap: ${{ inputs.cap || '5' }}
+      cap: ${{ inputs.cap || '10' }}
       issue-number: ${{ inputs.issue-number || '' }}
 
   triage:
