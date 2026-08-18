@@ -14,15 +14,16 @@ There are multiple workflows that have different purposes:
 | Triage new issues | hourly | issues created in the last 7 days | `clang-tidy-triage` | Help triage incoming [clang-tidy](https://github.com/llvm/llvm-project/issues?q=is%3Aissue%20state%3Aopen%20label%3Aclang-tidy) issues in LLVM |
 | Triage old issues | daily | old and untagged issues | `clang-tidy-triage-backlog` | Help triage old, unattended [clang-tidy](https://github.com/llvm/llvm-project/issues?q=is%3Aissue%20state%3Aopen%20label%3Aclang-tidy) issues in LLVM |
 
-As artifacts, all jobs create tracking issue in current repository that links to an issue in
-[LLVM](https://github.com/llvm/llvm-project) repository has a **Verdict**, **Godbolt Link** and
-recommended **Type**/**Tags** for the LLVM issue.
-Maintainers should double check it and then apply the Type/Tags to the LLVM issue if it looks right.
+As an artifact, each job create tracking issue in current repository that links to an issue in
+[LLVM](https://github.com/llvm/llvm-project) repository. Each issue has a **Verdict**, **Godbolt Link** and
+recommended **Type**/**Tags** to apply for upstream LLVM issue.
+Maintainers should double check Type/Tags before applying them to LLVM issue.
 
 ### How to tag old issues
 
-An untagged old issue is one that's open, labeled `clang-tidy` but missing a
-GitHub Issue Type and every recognized triage label:
+One of the workflows discovers "untagged old issues".
+An untagged issue is one that's open, labeled `clang-tidy` but missing a
+GitHub Issue Type or every recognized triage label:
 
 - `false-positive`
 - `false-negative`
@@ -37,7 +38,7 @@ GitHub Issue Type and every recognized triage label:
 See the live list at [untriaged clang-tidy issues](https://github.com/llvm/llvm-project/issues?q=is%3Aissue+is%3Aopen+label%3Aclang-tidy+-label%3Afalse-positive+-label%3Afalse-negative+-label%3Aenhancement+-label%3Acheck-request+-label%3Adocumentation+-label%3Abuild-problem+-label%3Acode-cleanup+-label%3Ametaissue+-label%3Aquestion+no%3Atype).
 
 Maintainer should apply appropriate **Type**/**Tags** for untagged LLVM issue, or close it if no longer valid.
-After that, close the issue in this repository as completed - the issue was successfully triaged.
+After resolving upstream LLVM issue, close corresponding issue in this repository as completed.
 
 ## When to close issues in this repository
 
