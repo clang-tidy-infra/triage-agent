@@ -422,5 +422,78 @@ class TestPostCommentCommand(unittest.TestCase):
         )
 
 
+def _status(
+    number: int, state: str = "OPEN", labels=None, has_issue_type: bool = False
+):
+    from triage_agent.llvm_issues import LlvmIssueTriageStatus
+
+    return LlvmIssueTriageStatus(
+        number=number,
+        state=state,
+        labels=labels or [],
+        has_issue_type=has_issue_type,
+    )
+
+
+class TestCloseTriagedIssuesCommand(unittest.TestCase):
+    @patch("triage_agent.triage_db.close_tracking_issue")
+    @patch("triage_agent.llvm_issues.fetch_issue_triage_status")
+    @patch("triage_agent.triage_db.fetch_open_tracking_issues")
+    def test_closes_only_triaged_issues(
+        self, mock_fetch_tracking, mock_fetch_status, mock_close
+    ):
+        mock_fetch_tracking.return_value = {10: 1, 11: 2}
+        mock_fetch_status.side_effect = lambda number: {
+            1: _status(1, state="OPEN", labels=["clang-tidy"]),
+            2: _status(2, state="CLOSED"),
+        }[number]
+
+        with patch("builtins.print"):
+            exit_code = cli.main(["close-triaged-issues"])
+
+        self.assertEqual(exit_code, 0)
+        mock_close.assert_called_once()
+        (issue_number, comment), _ = mock_close.call_args
+        self.assertEqual(issue_number, 11)
+        self.assertIn("llvm-project/issues/2", comment)
+
+    @patch("triage_agent.triage_db.close_tracking_issue")
+    @patch("triage_agent.llvm_issues.fetch_issue_triage_status")
+    @patch("triage_agent.triage_db.fetch_open_tracking_issues")
+    def test_closes_none_when_nothing_triaged(
+        self, mock_fetch_tracking, mock_fetch_status, mock_close
+    ):
+        mock_fetch_tracking.return_value = {10: 1}
+        mock_fetch_status.return_value = _status(1, state="OPEN", labels=[])
+
+        with patch("builtins.print"):
+            exit_code = cli.main(["close-triaged-issues"])
+
+        self.assertEqual(exit_code, 0)
+        mock_close.assert_not_called()
+
+    @patch("triage_agent.triage_db.close_tracking_issue")
+    @patch("triage_agent.llvm_issues.fetch_issue_triage_status")
+    @patch("triage_agent.triage_db.fetch_open_tracking_issues")
+    def test_skips_issue_when_status_fetch_fails(
+        self, mock_fetch_tracking, mock_fetch_status, mock_close
+    ):
+        import subprocess
+
+        mock_fetch_tracking.return_value = {10: 1, 11: 2}
+        mock_fetch_status.side_effect = [
+            subprocess.CalledProcessError(1, ["gh"], stderr="not found"),
+            _status(2, state="CLOSED"),
+        ]
+
+        with patch("builtins.print"):
+            exit_code = cli.main(["close-triaged-issues"])
+
+        self.assertEqual(exit_code, 0)
+        mock_close.assert_called_once()
+        (issue_number, _comment), _ = mock_close.call_args
+        self.assertEqual(issue_number, 11)
+
+
 if __name__ == "__main__":
     unittest.main()

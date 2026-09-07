@@ -1,0 +1,53 @@
+name: Close triaged issues
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  close-triaged:
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install triage-agent
+        run: pip install -e .
+
+      - name: Close tracking issues already triaged upstream
+        run: triage-agent close-triaged-issues
+
+      - name: Report failure
+        if: failure()
+        env:
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          health_issue=$(gh issue list --repo "$REPO" --label bot-failure \
+            --state open --json number --jq '.[0].number // empty')
+          if [ -z "$health_issue" ]; then
+            health_issue=$(gh issue create --repo "$REPO" --title "Bot run failures" \
+              --body "Tracking failed triage-agent runs - see comments below." \
+              --label bot-failure | grep -oE '[0-9]+$')
+          fi
+          gh issue comment "$health_issue" --repo "$REPO" \
+            --body "Close-triaged-issues run failed: $RUN_URL"
