@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -103,6 +104,50 @@ def _cmd_post_comment(args: argparse.Namespace) -> int:
     return 0
 
 
+def _closed_tracking_issue_comment(
+    source_number: int, status: llvm_issues.LlvmIssueTriageStatus
+) -> str:
+    source_url = f"https://github.com/{llvm_issues.LLVM_REPO}/issues/{source_number}"
+    recognized = [
+        label
+        for label in status.labels
+        if label in llvm_issues.RECOGNIZED_TRIAGE_LABELS
+    ]
+    if recognized:
+        reason = f"was tagged {', '.join(recognized)}"
+    elif status.has_issue_type:
+        reason = "had a GitHub Issue Type set"
+    else:
+        reason = "was closed"
+    return (
+        f"Closing - the source LLVM issue {source_url} {reason} upstream, "
+        "so this tracking issue is no longer needed."
+    )
+
+
+def _cmd_close_triaged_issues(args: argparse.Namespace) -> int:
+    tracking = triage_db.fetch_open_tracking_issues()
+    closed = 0
+    for tracking_number, source_number in sorted(tracking.items()):
+        try:
+            status = llvm_issues.fetch_issue_triage_status(source_number)
+        except subprocess.CalledProcessError as exc:
+            print(
+                f"Skipping #{tracking_number} (llvm#{source_number}): "
+                f"failed to fetch status: {exc.stderr.strip()}",
+                file=sys.stderr,
+            )
+            continue
+        if not llvm_issues.is_issue_triaged(status):
+            continue
+        comment = _closed_tracking_issue_comment(source_number, status)
+        triage_db.close_tracking_issue(tracking_number, comment)
+        print(f"Closed #{tracking_number} (llvm#{source_number}): {comment}")
+        closed += 1
+    print(f"Closed {closed} of {len(tracking)} open tracking issue(s)")
+    return 0
+
+
 def _add_discover_parser(subparsers: argparse._SubParsersAction) -> None:
     discover_parser = subparsers.add_parser(
         "discover", help="Find new clang-tidy LLVM issues to triage"
@@ -193,6 +238,17 @@ def _add_post_comment_parser(subparsers: argparse._SubParsersAction) -> None:
     comment_parser.set_defaults(func=_cmd_post_comment)
 
 
+def _add_close_triaged_issues_parser(subparsers: argparse._SubParsersAction) -> None:
+    close_parser = subparsers.add_parser(
+        "close-triaged-issues",
+        help=(
+            "Close open tracking issues whose source LLVM issue has since "
+            "been triaged or closed upstream"
+        ),
+    )
+    close_parser.set_defaults(func=_cmd_close_triaged_issues)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="triage-agent",
@@ -203,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_report_template_parser(subparsers)
     _add_create_tracking_issue_parser(subparsers)
     _add_post_comment_parser(subparsers)
+    _add_close_triaged_issues_parser(subparsers)
 
     args = parser.parse_args(argv)
     if hasattr(args, "func"):

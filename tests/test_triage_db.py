@@ -162,6 +162,62 @@ class TestCreateTrackingIssue(unittest.TestCase):
         self.assertEqual(labels, ["clang-tidy-triage", "clang-tidy-triage-backlog"])
 
 
+class TestFetchOpenTrackingIssues(unittest.TestCase):
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_unions_both_labels_by_default(self, mock_run):
+        def fake_run(argv, **kwargs):
+            label = argv[argv.index("--label") + 1]
+            body = {
+                "clang-tidy-triage": (
+                    "- **Issue:** https://github.com/llvm/llvm-project/issues/1"
+                ),
+                "clang-tidy-triage-backlog": (
+                    "- **Issue:** https://github.com/llvm/llvm-project/issues/2"
+                ),
+            }[label]
+            number = {"clang-tidy-triage": 10, "clang-tidy-triage-backlog": 11}[label]
+            return MagicMock(
+                stdout=json.dumps([{"number": number, "body": body}]),
+            )
+
+        mock_run.side_effect = fake_run
+
+        result = triage_db.fetch_open_tracking_issues()
+
+        self.assertEqual(result, {10: 1, 11: 2})
+        self.assertEqual(mock_run.call_count, 2)
+        for call in mock_run.call_args_list:
+            (argv,), kwargs = call
+            self.assertIn("--state", argv)
+            self.assertEqual(argv[argv.index("--state") + 1], "open")
+            self.assertTrue(kwargs["check"])
+
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_skips_issues_without_source_marker(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout=json.dumps([{"number": 5, "body": "no marker here"}])
+        )
+
+        result = triage_db.fetch_open_tracking_issues(labels=["clang-tidy-triage"])
+
+        self.assertEqual(result, {})
+
+
+class TestCloseTrackingIssue(unittest.TestCase):
+    @patch("triage_agent.triage_db.subprocess.run")
+    def test_closes_via_gh_with_comment(self, mock_run):
+        triage_db.close_tracking_issue(9, "Closing - already triaged upstream.")
+
+        (argv,), kwargs = mock_run.call_args
+        self.assertEqual(argv[:3], ["gh", "issue", "close"])
+        self.assertIn("9", argv)
+        self.assertIn("--comment", argv)
+        self.assertEqual(
+            argv[argv.index("--comment") + 1], "Closing - already triaged upstream."
+        )
+        self.assertTrue(kwargs["check"])
+
+
 class TestPostComment(unittest.TestCase):
     @patch("triage_agent.triage_db.subprocess.run")
     def test_comments_via_body_file_and_returns_url(self, mock_run):

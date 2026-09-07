@@ -9,6 +9,11 @@ search-index API (which lags), since a full fetch-and-diff is cheap at
 this repo's scale. Both open and closed tracking issues count as tracked
 - see `fetch_tracked_llvm_issue_numbers`. To force a re-triage, comment
 `/redo` on the tracking issue instead of closing/reopening it.
+
+Once the source LLVM issue is itself triaged (or closed) upstream, its
+tracking issue here is no longer useful - `fetch_open_tracking_issues` and
+`close_tracking_issue` back the close-triaged-issues workflow that sweeps
+and closes those automatically.
 """
 
 import json
@@ -97,6 +102,69 @@ def select_new_issues(
     untracked = [issue for issue in llvm_issues if issue.number not in tracked]
     ordered = sorted(untracked, key=lambda issue: issue.created_at)
     return ordered[:cap]
+
+
+def fetch_open_tracking_issues(
+    repo: str = TRIAGE_REPO, labels: list[str] | None = None
+) -> dict[int, int]:
+    """Return {tracking issue number: source LLVM issue number} for open
+    tracking issues, used to find candidates for auto-closing once the
+    source LLVM issue has been triaged upstream.
+
+    `labels` defaults to both known tracking labels - a backlog-triaged
+    issue is just as closeable as a recently-triaged one once LLVM acts on
+    the underlying issue.
+    """
+    if labels is None:
+        labels = [TRACKING_LABEL, BACKLOG_TRACKING_LABEL]
+    tracking: dict[int, int] = {}
+    for label in labels:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--label",
+                label,
+                "--state",
+                "open",
+                "--json",
+                "number,body",
+                "--limit",
+                "1000",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        for issue in json.loads(result.stdout):
+            source_number = extract_source_issue_number(issue["body"] or "")
+            if source_number is not None:
+                tracking[issue["number"]] = source_number
+    return tracking
+
+
+def close_tracking_issue(
+    issue_number: int, comment: str, repo: str = TRIAGE_REPO
+) -> None:
+    """Close a tracking issue in `repo`, leaving `comment` as the closing reason."""
+    subprocess.run(
+        [
+            "gh",
+            "issue",
+            "close",
+            str(issue_number),
+            "--repo",
+            repo,
+            "--comment",
+            comment,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def create_tracking_issue(

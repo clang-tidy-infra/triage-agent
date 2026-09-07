@@ -9,12 +9,24 @@ from typing import Any
 LLVM_REPO = "llvm/llvm-project"
 CLANG_TIDY_LABEL = "clang-tidy"
 ISSUE_JSON_FIELDS = "number,title,body,url,createdAt"
+# The primary-bucket triage labels from AGENTS.md's Tags taxonomy - applying
+# any one of these (or a GitHub Issue Type) to an LLVM issue is what "this
+# issue has been triaged" means elsewhere in this module.
+RECOGNIZED_TRIAGE_LABELS = [
+    "false-positive",
+    "false-negative",
+    "enhancement",
+    "check-request",
+    "documentation",
+    "build-problem",
+    "code-cleanup",
+    "metaissue",
+    "question",
+]
 # Issues missing every recognized triage label and a GitHub Issue Type -
 # mirrors the query the user already used manually to find untagged backlog.
 UNTAGGED_QUERY = (
-    "-label:false-positive -label:false-negative -label:enhancement "
-    "-label:check-request -label:documentation -label:build-problem "
-    "-label:code-cleanup -label:metaissue -label:question no:type"
+    " ".join(f"-label:{label}" for label in RECOGNIZED_TRIAGE_LABELS) + " no:type"
 )
 
 
@@ -128,3 +140,50 @@ def fetch_issue(number: int, repo: str = LLVM_REPO) -> LlvmIssue:
         text=True,
     )
     return _issue_from_dict(json.loads(result.stdout))
+
+
+@dataclass
+class LlvmIssueTriageStatus:
+    number: int
+    state: str  # "OPEN" or "CLOSED"
+    labels: list[str]
+    has_issue_type: bool
+
+
+def fetch_issue_triage_status(
+    number: int, repo: str = LLVM_REPO
+) -> LlvmIssueTriageStatus:
+    """Fetch just enough of an LLVM issue to decide `is_issue_triaged` below."""
+    result = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "state,labels,issueType",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+    return LlvmIssueTriageStatus(
+        number=number,
+        state=data["state"],
+        labels=[label["name"] for label in data["labels"]],
+        has_issue_type=data.get("issueType") is not None,
+    )
+
+
+def is_issue_triaged(status: LlvmIssueTriageStatus) -> bool:
+    """True once a maintainer has acted on the LLVM issue - closed it, applied
+    a recognized triage label, or set a GitHub Issue Type - meaning a tracking
+    issue for it in this repo no longer serves a purpose."""
+    if status.state == "CLOSED":
+        return True
+    if status.has_issue_type:
+        return True
+    return any(label in RECOGNIZED_TRIAGE_LABELS for label in status.labels)
