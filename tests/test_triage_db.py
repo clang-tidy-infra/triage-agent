@@ -52,7 +52,9 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
             )
         )
 
-        result = triage_db.fetch_tracked_llvm_issue_numbers()
+        result = triage_db.fetch_tracked_llvm_issue_numbers(
+            labels=["clang-tidy-triage"]
+        )
 
         self.assertEqual(result, {1, 2})
         (argv,), kwargs = mock_run.call_args
@@ -67,6 +69,17 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
         self.assertTrue(kwargs["check"])
 
     @patch("triage_agent.triage_db.subprocess.run")
+    def test_defaults_to_every_tracking_label(self, mock_run):
+        mock_run.return_value = MagicMock(stdout=json.dumps([]))
+
+        triage_db.fetch_tracked_llvm_issue_numbers()
+
+        queried = [
+            argv[argv.index("--label") + 1] for (argv,), _ in mock_run.call_args_list
+        ]
+        self.assertEqual(queried, ["clang-tidy-triage", "clang-tidy-triage-backlog"])
+
+    @patch("triage_agent.triage_db.subprocess.run")
     def test_state_open_can_be_explicitly_requested(self, mock_run):
         mock_run.return_value = MagicMock(
             stdout=json.dumps(
@@ -79,7 +92,9 @@ class TestFetchTrackedLlvmIssueNumbers(unittest.TestCase):
             )
         )
 
-        result = triage_db.fetch_tracked_llvm_issue_numbers(state="open")
+        result = triage_db.fetch_tracked_llvm_issue_numbers(
+            state="open", labels=["clang-tidy-triage"]
+        )
 
         self.assertEqual(result, {9})
         (argv,), _ = mock_run.call_args

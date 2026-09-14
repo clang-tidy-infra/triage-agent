@@ -6,8 +6,10 @@ line (see report_template.py) pointing back at the source LLVM issue.
 Dedup works by fetching this repo's tracking issues each run and
 regex-extracting that line client-side, deliberately avoiding GitHub's
 search-index API (which lags), since a full fetch-and-diff is cheap at
-this repo's scale. Both open and closed tracking issues count as tracked
-- see `fetch_tracked_llvm_issue_numbers`. To force a re-triage, comment
+this repo's scale. Both open and closed tracking issues count as tracked,
+under either tracking label, so the new-issue and backlog workflows never
+both file a tracking issue for the same LLVM issue - see
+`fetch_tracked_llvm_issue_numbers`. To force a re-triage, comment
 `/redo` on the tracking issue instead of closing/reopening it.
 
 Once the source LLVM issue is itself triaged (or closed) upstream, its
@@ -27,6 +29,7 @@ from triage_agent.llvm_issues import LlvmIssue
 TRIAGE_REPO = "clang-tidy-infra/triage-agent"
 TRACKING_LABEL = "clang-tidy-triage"
 BACKLOG_TRACKING_LABEL = "clang-tidy-triage-backlog"
+ALL_TRACKING_LABELS = [TRACKING_LABEL, BACKLOG_TRACKING_LABEL]
 SOURCE_MARKER_RE = re.compile(
     r"-\s*\*\*Issue:\*\*\s*https://github\.com/llvm/llvm-project/issues/(\d+)"
 )
@@ -55,13 +58,17 @@ def fetch_tracked_llvm_issue_numbers(
     explicitly, either via the manual --issue-number override or by
     commenting `/redo` on its tracking issue.
 
-    `labels` defaults to `[TRACKING_LABEL]`. Passing multiple labels unions
-    their results (one `gh issue list` call per label) rather than
-    intersecting, since `--label` on a single call is an AND filter and
-    tracking issues only ever carry one of these labels, never both.
+    `labels` defaults to every tracking label, so an LLVM issue already
+    triaged by one workflow is skipped by the other: the new-issue and
+    backlog workflows overlap (a recently created issue is also untagged),
+    and deduping per-label would let both file their own tracking issue
+    for it. Passing multiple labels unions their results (one `gh issue
+    list` call per label) rather than intersecting, since `--label` on a
+    single call is an AND filter and tracking issues only ever carry one
+    of these labels, never both.
     """
     if labels is None:
-        labels = [TRACKING_LABEL]
+        labels = ALL_TRACKING_LABELS
     numbers: set[int] = set()
     for label in labels:
         result = subprocess.run(
@@ -116,7 +123,7 @@ def fetch_open_tracking_issues(
     the underlying issue.
     """
     if labels is None:
-        labels = [TRACKING_LABEL, BACKLOG_TRACKING_LABEL]
+        labels = ALL_TRACKING_LABELS
     tracking: dict[int, int] = {}
     for label in labels:
         result = subprocess.run(
