@@ -61,13 +61,29 @@ class TestDiscoverCommand(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         mock_fetch_untagged.assert_called_once()
         mock_fetch_recent.assert_not_called()
-        mock_tracked.assert_called_once_with(
-            state="all", labels=["clang-tidy-triage-backlog"]
-        )
+        mock_tracked.assert_called_once_with()
         mock_select.assert_called_once_with(
             mock_fetch_untagged.return_value, set(), cap=5
         )
         mock_print.assert_called_once_with("[1]")
+
+    @patch("triage_agent.triage_db.fetch_tracked_llvm_issue_numbers")
+    @patch("triage_agent.llvm_issues.fetch_untagged_clang_tidy_issues")
+    @patch("triage_agent.llvm_issues.fetch_recent_clang_tidy_issues")
+    def test_skips_issues_tracked_under_the_other_modes_label(
+        self, mock_fetch_recent, mock_fetch_untagged, mock_tracked
+    ):
+        """An issue triaged by one workflow must not be picked up by the other."""
+        mock_fetch_recent.return_value = [_issue(1), _issue(2)]
+        mock_fetch_untagged.return_value = [_issue(1), _issue(2)]
+        # Default dedup unions both tracking labels, so #1 is already handled
+        # no matter which workflow filed its tracking issue.
+        mock_tracked.return_value = {1}
+
+        for mode in ("recent", "backlog"):
+            with self.subTest(mode=mode), patch("builtins.print") as mock_print:
+                self.assertEqual(main(["discover", "--mode", mode, "--cap", "5"]), 0)
+                mock_print.assert_called_once_with("[2]")
 
 
 class TestReportTemplateCommand(unittest.TestCase):
