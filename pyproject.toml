@@ -50,7 +50,7 @@ dev = [
     "black==26.5.1",
     "validate-pyproject[all]==0.26",
     "yamllint==1.38.0",
-    "ruff==0.16.5",
+    "ruff==0.16.6",
     "mypy==2.3.1",
     "zizmor==1.30.0",
     "types-requests",
