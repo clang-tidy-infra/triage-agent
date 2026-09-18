@@ -21,6 +21,7 @@ ANALYSIS_FIELDS = [
     "Type",
     "Tags",
     "Godbolt Link",
+    "Similar Issues",
     "Rationale",
 ]
 KNOWN_VERDICTS = {
@@ -87,6 +88,7 @@ def generate_report_template(
 - **Type:** {TBD}
 - **Tags:** {TBD}
 - **Godbolt Link:** {TBD}
+- **Similar Issues:** {TBD}
 - **Rationale:** {TBD}
 """
     Path(output).write_text(content, encoding="utf-8")

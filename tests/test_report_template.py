@@ -35,6 +35,7 @@ class TestGenerateReportTemplate(unittest.TestCase):
         self.assertIn("**Type:** TBD", content)
         self.assertIn("**Tags:** TBD", content)
         self.assertIn("**Godbolt Link:** TBD", content)
+        self.assertIn("**Similar Issues:** TBD", content)
         self.assertIn("**Rationale:** TBD", content)
 
     def test_extract_source_issue_number_finds_issue_line(self):
@@ -227,6 +228,7 @@ class TestFindUnfilledFields(unittest.TestCase):
                 "Type",
                 "Tags",
                 "Godbolt Link",
+                "Similar Issues",
                 "Rationale",
             ],
         )
@@ -240,6 +242,7 @@ class TestFindUnfilledFields(unittest.TestCase):
             "- **Type:** Bug\n"
             "- **Tags:** false-positive\n"
             "- **Godbolt Link:** N/A\n"
+            "- **Similar Issues:** N/A\n"
             "- **Rationale:** still deciding.\n"
         )
 

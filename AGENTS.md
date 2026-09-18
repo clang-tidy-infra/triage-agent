@@ -19,6 +19,12 @@ point of this run - is doing the investigation that makes the
 classification *useful* to both of those people. Use the local LLVM
 checkout for this, not just to confirm/deny.
 
+Every free-text field (**Rationale**, **Similar Issues**, the final
+summary) should be concise and to the point - no fixed sentence quota,
+but say only what a reader needs to trust and act on your conclusion.
+Cut restated context, hedging, and filler; more investigation should
+show up as more *substance* per sentence, not more sentences.
+
 ## Project Layout
 
 ```text
@@ -33,7 +39,7 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
 
 - **Source** (top) - the original issue's URL, title, and raw body.
   **Never edit this section.**
-- **Analysis** (bottom) - eight fields, all starting as `TBD`, that you fill in.
+- **Analysis** (bottom) - nine fields, all starting as `TBD`, that you fill in.
 
 ## Analysis Procedure
 
@@ -131,7 +137,9 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       underlying bug or request. Exclude the current issue's own number
       (visible in the Source section) from consideration.
     - If you find a genuine duplicate or closely related prior report,
-      record it - see **Tags** (step 5a) and **Rationale** (step 6).
+      record it - see **Tags** (step 5a) and **Similar Issues** (step 5b).
+      Similar Issues, not Rationale, is where these prior reports get
+      written up; keep Rationale focused on the current issue.
 
 3. **Reproduce via `godbolt.py`** - run:
    ```sh
@@ -215,29 +223,56 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
       - `metaissue` - umbrella issue collecting several related issues.
       - `question` - not actually a bug report.
       - `duplicate` - add this whenever step 2b's search turned up a
-        genuine prior report; name it in **Rationale** (this one you
-        actively search for, not just note if the reporter mentions it).
+        genuine prior report; name it in **Similar Issues** (step 5b),
+        not here (this one you actively search for, not just note if the
+        reporter mentions it).
       - `wontfix` - only if evident from the issue itself (e.g. a
         maintainer already said so in comments); don't guess this one
         from silence.
       If truly nothing applies, write `N/A` - but for a `clang-tidy`
       labeled issue this should be rare.
 
-6. **Write a rationale** in **Rationale**: explain what you observed and
-   why you reached that verdict. For `Reproduced` / `Not Reproduced` /
-   `Crash` / `Uncertain`, 1-3 sentences is usually enough. For
+5b. **Record Similar Issues.** Fill in **Similar Issues** with every
+    duplicate or closely related prior report step 2b surfaced (excluding
+    the current issue's own number). One bullet per issue:
+
+    - Always a markdown link built from the full URL, e.g.
+      `[llvm/llvm-project#213560](https://github.com/llvm/llvm-project/issues/213560)`
+      - never a bare `#213560`. This repository is not `llvm/llvm-project`,
+      so a bare issue reference does not render as a link here and is a
+      dead end for the reader.
+    - Followed by the shortest clause that still says *why* it's
+      similar: exact duplicate vs. related-but-distinct, and what
+      specifically matches or differs (same root cause? same symptom but
+      different check version? explicitly ruled out and why?). One
+      clause, not a paragraph.
+
+    If step 2b found nothing worth surfacing, write `N/A`. This field is
+    the only place duplicates/related issues get written up - keep them
+    out of **Rationale**, which stays focused on the current issue.
+
+6. **Write a rationale** in **Rationale**: explain what you observed
+   about *this* issue and why you reached that verdict - not prior art,
+   that's **Similar Issues** (step 5b). For `Reproduced` / `Not
+   Reproduced` / `Crash` / `Uncertain`, this is usually a couple of
+   sentences: what you observed, why it means that verdict. For
    `New Check Proposal`, `Enhancement Request`, and `Question`, this is
-   where the actual answer or design critique from steps 2a/5 goes -
-   let it run longer if the investigation genuinely produced more to
-   say, but stay focused (don't pad). If step 2b found a duplicate or
-   closely related prior report, name the specific issue number/link and
-   briefly say how it relates (exact duplicate vs. related-but-distinct)
-   - this doesn't replace your technical verdict, a duplicate bug report
-   can still genuinely be `Reproduced`; it's additional context so a
-   maintainer can merge/close without redoing your search. Either way,
-   write it as a single flowing paragraph on one logical line - do not
-   insert manual line breaks partway through sentences; let GitHub wrap
-   the text when it renders the issue.
+   where the actual answer or design critique from steps 2a/5 goes - let
+   it run longer only if the investigation genuinely produced more to
+   say, but stay focused: every sentence should carry a new fact or
+   judgment, not restate one already made.
+
+   Write it as clear, short declarative sentences that read as one
+   flowing paragraph - favor periods over semicolons. A Rationale that's
+   one 150-word sentence stitched together with semicolons is harder to
+   read than the same content as four short sentences, and both satisfy
+   the technical constraint below equally well, so always prefer the
+   short sentences. The technical constraint itself: the field must stay
+   a single physical line in `report.md` - no embedded newline
+   characters partway through, or GitHub's list rendering breaks. That's
+   a rule about the raw markdown, not an instruction to cram everything
+   into one sentence; let GitHub soft-wrap the line when it renders the
+   issue.
 
 7. **End with a final summary.** Once `report.md` is fully filled in,
    your last chat reply in this conversation is captured verbatim and
@@ -250,10 +285,10 @@ llvm-project/clang-tools-extra/    # LLVM source checkout (read-only, not built)
    the key point of a design critique for a **New Check Proposal** /
    **Enhancement Request**). This is what the issue author sees first -
    write it like you're actually responding to them, not logging a
-   classification. 2-4 sentences, one flowing paragraph, no manual line
-   breaks. Say nothing before or after it in that final reply - no
-   "Done!", no restating the file changes, just the summary paragraph
-   itself.
+   classification. Keep it as short as that allows - one flowing
+   paragraph, no manual line breaks, no restating fields verbatim. Say
+   nothing before or after it in that final reply - no "Done!", no
+   restating the file changes, just the summary paragraph itself.
 
 ## Escape Hatch
 
@@ -265,16 +300,17 @@ path (step 2a, the local LLVM checkout) and their own verdicts
 reach for this hatch just because there's no C++ snippet to reproduce.
 
 When it genuinely applies: set **Verdict** to `Uncertain`, explain why in
-**Rationale**, leave **Godbolt Link** as `N/A`, and stop - do not invent a
-snippet. Still fill in **Type** and **Tags** based on what the issue
-actually is (e.g. a build failure is `Type: Task`, `Tags: build-problem`).
+**Rationale**, leave **Godbolt Link** and **Similar Issues** as `N/A`,
+and stop - do not invent a snippet. Still fill in **Type** and **Tags**
+based on what the issue actually is (e.g. a build failure is
+`Type: Task`, `Tags: build-problem`).
 
 ## Hard Rules
 
 - **Edit `report.md` in place.** Do NOT rewrite the file from scratch or
   change its structure.
 - Do **NOT** edit the Source section (Issue/Title/original body).
-- Do **NOT** leave any of the eight Analysis fields as `TBD` - every
+- Do **NOT** leave any of the nine Analysis fields as `TBD` - every
   field must be filled in, even if the value is `N/A`.
 - **Type** must be exactly one of `Bug`, `Feature`, or `Task` - no other
   spelling or value.
@@ -283,6 +319,15 @@ actually is (e.g. a build failure is `Type: Task`, `Tags: build-problem`).
   will fail the run rather than silently land in the issue.
 - Be **conservative** - only mark `Reproduced` when Godbolt's output
   clearly matches the reported behavior.
-- Write **Rationale** as one unbroken line of prose, no manual line
-  breaks - a list item's continuation lines need indentation to render
-  correctly on GitHub, and mid-sentence breaks without it render broken.
+- Every entry in **Similar Issues** must be a markdown link built from
+  the full `https://github.com/llvm/llvm-project/issues/<N>` URL - never
+  a bare `#<N>` or `llvm/llvm-project#<N>` without the link syntax. This
+  repository isn't `llvm/llvm-project`, so anything less doesn't render
+  as a clickable link here. Each nested bullet under **Similar Issues**
+  needs a 2-space indent to render as a sub-list on GitHub.
+- Write **Rationale** as one unbroken line of prose (no embedded newline
+  characters), but as several short declarative sentences, not one
+  semicolon-chained mega-sentence - a list item's continuation lines
+  need indentation to render correctly on GitHub, and mid-sentence
+  breaks without it render broken, but that constraint says nothing
+  about sentence length; let GitHub soft-wrap the line when it renders.
