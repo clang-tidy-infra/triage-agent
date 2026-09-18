@@ -26,6 +26,7 @@ An untagged issue is one that's open, labeled `clang-tidy` but missing a
 GitHub Issue Type or every recognized triage label:
 
 - `false-positive`
+- `performance`
 - `false-negative`
 - `enhancement`
 - `check-request`
@@ -35,7 +36,7 @@ GitHub Issue Type or every recognized triage label:
 - `metaissue`
 - `question`
 
-See the live list at [untriaged clang-tidy issues](https://github.com/llvm/llvm-project/issues?q=is%3Aissue+is%3Aopen+label%3Aclang-tidy+-label%3Afalse-positive+-label%3Afalse-negative+-label%3Aenhancement+-label%3Acheck-request+-label%3Adocumentation+-label%3Abuild-problem+-label%3Acode-cleanup+-label%3Ametaissue+-label%3Aquestion+no%3Atype).
+See the live list at [untriaged clang-tidy issues](https://github.com/llvm/llvm-project/issues?q=is%3Aissue+is%3Aopen+label%3Aclang-tidy+-label%3Afalse-positive+-label%3Aperformance+-label%3Afalse-negative+-label%3Aenhancement+-label%3Acheck-request+-label%3Adocumentation+-label%3Abuild-problem+-label%3Acode-cleanup+-label%3Ametaissue+-label%3Aquestion+no%3Atype).
 
 Maintainer should apply appropriate **Type**/**Tags** for untagged LLVM issue, or close it if no longer valid.
 After resolving upstream LLVM issue, close corresponding issue in this repository as completed.

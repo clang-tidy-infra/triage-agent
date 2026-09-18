@@ -9,11 +9,14 @@ from typing import Any
 LLVM_REPO = "llvm/llvm-project"
 CLANG_TIDY_LABEL = "clang-tidy"
 ISSUE_JSON_FIELDS = "number,title,body,url,createdAt"
-# The primary-bucket triage labels from AGENTS.md's Tags taxonomy - applying
-# any one of these (or a GitHub Issue Type) to an LLVM issue is what "this
-# issue has been triaged" means elsewhere in this module.
+# Labels that mark an LLVM issue as already triaged - mostly AGENTS.md's
+# Tags taxonomy, plus a couple of general LLVM labels (e.g. `performance`)
+# that also indicate the issue has been handled elsewhere. Applying any one
+# of these (or a GitHub Issue Type) is what "this issue has been triaged"
+# means elsewhere in this module.
 RECOGNIZED_TRIAGE_LABELS = [
     "false-positive",
+    "performance",
     "false-negative",
     "enhancement",
     "check-request",
