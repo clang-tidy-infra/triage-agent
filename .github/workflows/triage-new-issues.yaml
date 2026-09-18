@@ -37,7 +37,7 @@ jobs:
     permissions:
       contents: read
       issues: read
-    uses: ./.github/workflows/discover-issues.yaml
+    uses: $/.github/workflows/discover-issues.yaml
     with:
       mode: 'recent'
       since-days: ${{ inputs.since-days || '7' }}
@@ -49,7 +49,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: ./.github/workflows/triage-analysis.yaml
+    uses: $/.github/workflows/triage-analysis.yaml
     with:
       issues: ${{ needs.discover.outputs.issues }}
       agent-backend: ${{ inputs.agent-backend || 'claude' }}
