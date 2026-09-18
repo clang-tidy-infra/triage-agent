@@ -4,7 +4,7 @@ help:
 	@echo "Available targets:"
 	@echo ""
 	@echo "  make activate - Create venv and install dev dependencies"
-	@echo "  make test     - Run tests with coverage"
+	@echo "  make test     - Run tests"
 	@echo "  make lint     - Run linters"
 	@echo "  make format   - Format code"
 	@echo "  make clean    - Clean development environment"
